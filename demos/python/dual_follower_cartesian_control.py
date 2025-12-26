@@ -184,13 +184,14 @@ class DualFollowerController:
         console.print("[bold green]✓ Initialization complete[/bold green]\n")
         logger.info("Initialization complete")
 
-    def execute_action(self, arm_left_action, arm_right_action, duration=2.0):
+    def execute_action(self, action, duration=2.0):
         """
         Execute a Cartesian action on both arms.
 
         Args:
-            arm_left_action: Action vector for left arm [x, y, z, roll, pitch, yaw, gripper]
-            arm_right_action: Action vector for right arm [x, y, z, roll, pitch, yaw, gripper]
+            action: Action vector for both arms [14 elements]
+                    [left_x, left_y, left_z, left_roll, left_pitch, left_yaw, left_gripper,
+                     right_x, right_y, right_z, right_roll, right_pitch, right_yaw, right_gripper]
             duration: Time to execute the movement (seconds)
 
         Returns:
@@ -200,12 +201,15 @@ class DualFollowerController:
             logger.debug("Shutdown requested, skipping action")
             return False
 
-        arm_left_action = np.array(arm_left_action)
-        arm_right_action = np.array(arm_right_action)
+        action = np.array(action)
 
-        if len(arm_left_action) != 7 or len(arm_right_action) != 7:
+        if len(action) != 14:
             logger.error("Invalid action vector dimensions")
-            raise ValueError("Action vectors must have 7 dimensions: [x, y, z, roll, pitch, yaw, gripper]")
+            raise ValueError("Action vector must have 14 dimensions: [left arm (7), right arm (7)]")
+
+        # Split action into left and right arm actions
+        arm_left_action = action[:7]
+        arm_right_action = action[7:]
 
         # Extract Cartesian deltas (x, y, z, roll, pitch, yaw)
         arm_left_delta = arm_left_action[:6]
@@ -420,31 +424,47 @@ Examples:
         # Initialize arms
         controller.initialize()
 
-        # Example action vectors: [x, y, z, roll, pitch, yaw, gripper]
+        # Example action vector: 14 elements
+        # [left_x, left_y, left_z, left_roll, left_pitch, left_yaw, left_gripper,
+        #  right_x, right_y, right_z, right_roll, right_pitch, right_yaw, right_gripper]
         # Note: Adjust these values based on your specific arm configuration
         # and workspace limits
 
         # Action 1: Move both arms forward and up, open grippers
-        action_left = [0.9, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]  # Open gripper (1.0)
-        action_right = [0.9, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
+        action = [
+            0.5929722785949707,   # left_x
+            -0.8700209259986877,  # left_y
+            0.9497268199920654,   # left_z
+            0.1804877519607544,   # left_roll
+            -0.5096222162246704,  # left_pitch
+            -0.4125874638557434,  # left_yaw
+            -0.9965096116065979,  # left_gripper
+            -0.6737160086631775,  # right_x
+            -1.0,                 # right_y
+            0.7450045347213745,   # right_z
+            -0.6993166208267212,  # right_roll
+            -0.6443812847137451,  # right_pitch
+            0.9514955282211304,   # right_yaw
+            -0.9932773113250732   # right_gripper
+        ]
 
         console.print(Panel("📍 [bold yellow]Action 1: Move Forward & Open Grippers[/bold yellow]"))
         logger.info("Starting Action 1")
-        if not controller.execute_action(action_left, action_right, duration=3.0):
+        if not controller.execute_action(action, duration=3.0):
             logger.warning("Action 1 interrupted")
             return
 
         time.sleep(1.0)
 
         # # Action 2: Move arms to different positions, close grippers
-        # action_left = [0.0, 0.1, 0.0, 0.0, 0.0, 0.0, -1.0]  # Close gripper (-1.0)
-        # action_right = [0.0, 0.1, 0.0, 0.0, 0.0, 0.0, -1.0]
+        # action = [
+        #     0.0, 0.1, 0.0, 0.0, 0.0, 0.0, -1.0,  # Left arm
+        #     0.0, 0.1, 0.0, 0.0, 0.0, 0.0, -1.0   # Right arm
+        # ]
 
         # console.print(Panel("📍 [bold yellow]Action 2: Move to Position & Close Grippers[/bold yellow]"))
-        # if not controller.execute_action(action_left, action_right, duration=3.0):
+        # if not controller.execute_action(action, duration=3.0):
         #     return
-
-        # time.sleep(1.0)
 
         # Add more actions as needed...
 
