@@ -32,8 +32,8 @@ Purpose:
     Each action vector has 7 dimensions: [x, y, z, roll, pitch, yaw, gripper]
 
 Hardware setup:
-    1. WXAI V0 arm with follower end effector at IP 192.168.1.2 (Arm 1)
-    2. WXAI V0 arm with follower end effector at IP 192.168.1.3 (Arm 2)
+    1. WXAI V0 arm with follower end effector at IP 192.168.1.2 (Left Arm)
+    2. WXAI V0 arm with follower end effector at IP 192.168.1.3 (Right Arm)
 
 The script:
     1. Initializes and configures both follower arms
@@ -42,32 +42,72 @@ The script:
     4. Returns to sleep position on completion or Ctrl+C
 """
 
+import argparse
+import logging
 import signal
 import sys
 import time
 
 import numpy as np
 
+from rich.console import Console
+from rich.logging import RichHandler
+from rich.panel import Panel
+from rich.table import Table
+from rich.progress import Progress, SpinnerColumn, TextColumn
+
 import trossen_arm
+
+console = Console()
+
+# Configure logging with Rich handler
+def setup_logging(verbosity: str) -> logging.Logger:
+    """
+    Setup logging with Rich handler.
+    
+    Args:
+        verbosity: 'error', 'warning', 'info', or 'debug'
+    """
+    level_map = {
+        'error': logging.ERROR,
+        'warning': logging.WARNING,
+        'info': logging.INFO,
+        'debug': logging.DEBUG
+    }
+    level = level_map.get(verbosity.lower(), logging.INFO)
+    
+    logging.basicConfig(
+        level=level,
+        format="%(message)s",
+        datefmt="[%X]",
+        handlers=[RichHandler(console=console, rich_tracebacks=True, show_path=False)]
+    )
+    
+    logger = logging.getLogger("dual_follower")
+    logger.setLevel(level)
+    return logger
+
+# Global logger (will be initialized in main)
+logger = None
 
 
 class DualFollowerController:
     """Controller for two follower arms with graceful shutdown."""
 
-    def __init__(self, arm1_ip='192.168.1.2', arm2_ip='192.168.1.3'):
+    def __init__(self, arm_left_ip='192.168.1.2', arm_right_ip='192.168.1.3'):
         """
         Initialize the dual follower controller.
 
         Args:
-            arm1_ip: IP address of first follower arm
-            arm2_ip: IP address of second follower arm
+            arm_left_ip: IP address of left follower arm
+            arm_right_ip: IP address of right follower arm
         """
-        self.arm1_ip = arm1_ip
-        self.arm2_ip = arm2_ip
-        self.arm1_driver = None
-        self.arm2_driver = None
-        self.arm1_sleep_positions = None
-        self.arm2_sleep_positions = None
+        self.arm_left_ip = arm_left_ip
+        self.arm_right_ip = arm_right_ip
+        self.arm_left_driver = None
+        self.arm_right_driver = None
+        self.arm_left_sleep_positions = None
+        self.arm_right_sleep_positions = None
         self.shutdown_requested = False
 
         # Register signal handler for Ctrl+C
@@ -75,96 +115,181 @@ class DualFollowerController:
 
     def _signal_handler(self, signum, frame):
         """Handle Ctrl+C signal."""
-        print("\n[INFO] Ctrl+C detected. Returning to sleep positions...")
+        console.print("\n[bold yellow]⚠ Ctrl+C detected. Returning to sleep positions...[/bold yellow]")
+        logger.warning("Shutdown signal received")
         self.shutdown_requested = True
 
     def initialize(self):
         """Initialize and configure both arm drivers."""
-        print("[INFO] Initializing drivers...")
-        self.arm1_driver = trossen_arm.TrossenArmDriver()
-        self.arm2_driver = trossen_arm.TrossenArmDriver()
-
-        print("[INFO] Configuring drivers...")
-        self.arm1_driver.configure(
-            trossen_arm.Model.wxai_v0,
-            trossen_arm.StandardEndEffector.wxai_v0_follower,
-            self.arm1_ip,
-            False
-        )
-        self.arm2_driver.configure(
-            trossen_arm.Model.wxai_v0,
-            trossen_arm.StandardEndEffector.wxai_v0_follower,
-            self.arm2_ip,
-            False
-        )
-
-        print("[INFO] Setting position mode...")
-        self.arm1_driver.set_arm_modes(trossen_arm.Mode.position)
-        self.arm2_driver.set_arm_modes(trossen_arm.Mode.position)
+        console.print(Panel.fit("🤖 [bold cyan]Initializing Dual Follower Controller[/bold cyan]"))
+        logger.info("Starting initialization process")
+        
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console,
+        ) as progress:
+            task1 = progress.add_task("[cyan]Initializing drivers...", total=None)
+            logger.debug("Creating TrossenArmDriver instances")
+            self.arm_left_driver = trossen_arm.TrossenArmDriver()
+            self.arm_right_driver = trossen_arm.TrossenArmDriver()
+            progress.update(task1, completed=True)
+            
+            task2 = progress.add_task("[cyan]Configuring drivers...", total=None)
+            logger.debug(f"Configuring Left Arm at {self.arm_left_ip}")
+            self.arm_left_driver.configure(
+                trossen_arm.Model.wxai_v0,
+                trossen_arm.StandardEndEffector.wxai_v0_follower,
+                self.arm_left_ip,
+                False
+            )
+            logger.debug(f"Configuring Right Arm at {self.arm_right_ip}")
+            self.arm_right_driver.configure(
+                trossen_arm.Model.wxai_v0,
+                trossen_arm.StandardEndEffector.wxai_v0_follower,
+                self.arm_right_ip,
+                False
+            )
+            progress.update(task2, completed=True)
+            
+            task3 = progress.add_task("[cyan]Setting position mode...", total=None)
+            logger.debug("Setting arms to position mode")
+            self.arm_left_driver.set_arm_modes(trossen_arm.Mode.position)
+            self.arm_right_driver.set_arm_modes(trossen_arm.Mode.position)
+            progress.update(task3, completed=True)
 
         # Record sleep positions
-        self.arm1_sleep_positions = np.array(self.arm1_driver.get_arm_positions())
-        self.arm2_sleep_positions = np.array(self.arm2_driver.get_arm_positions())
+        logger.debug("Recording sleep positions")
+        self.arm_left_sleep_positions = np.array(self.arm_left_driver.get_arm_positions())
+        self.arm_right_sleep_positions = np.array(self.arm_right_driver.get_arm_positions())
 
-        print("[INFO] Initialization complete.")
-        print(f"[INFO] Arm 1 sleep position: {self.arm1_sleep_positions}")
-        print(f"[INFO] Arm 2 sleep position: {self.arm2_sleep_positions}")
+        logger.info(f"Left Arm sleep position: {self.arm_left_sleep_positions}")
+        logger.info(f"Right Arm sleep position: {self.arm_right_sleep_positions}")
 
-    def execute_action(self, arm1_action, arm2_action, duration=2.0):
+        # Create sleep positions table
+        table = Table(title="💤 Sleep Positions", show_header=True, header_style="bold magenta")
+        table.add_column("Arm", style="cyan", width=12)
+        table.add_column("Position Vector", style="green")
+        
+        table.add_row(
+            f"Left Arm ({self.arm_left_ip})",
+            f"[{', '.join([f'{x:.3f}' for x in self.arm_left_sleep_positions])}]"
+        )
+        table.add_row(
+            f"Right Arm ({self.arm_right_ip})",
+            f"[{', '.join([f'{x:.3f}' for x in self.arm_right_sleep_positions])}]"
+        )
+        
+        console.print(table)
+        console.print("[bold green]✓ Initialization complete[/bold green]\n")
+        logger.info("Initialization complete")
+
+    def execute_action(self, arm_left_action, arm_right_action, duration=2.0):
         """
         Execute a Cartesian action on both arms.
 
         Args:
-            arm1_action: Action vector for arm 1 [x, y, z, roll, pitch, yaw, gripper]
-            arm2_action: Action vector for arm 2 [x, y, z, roll, pitch, yaw, gripper]
+            arm_left_action: Action vector for left arm [x, y, z, roll, pitch, yaw, gripper]
+            arm_right_action: Action vector for right arm [x, y, z, roll, pitch, yaw, gripper]
             duration: Time to execute the movement (seconds)
 
         Returns:
             bool: True if successful, False if shutdown requested
         """
         if self.shutdown_requested:
+            logger.debug("Shutdown requested, skipping action")
             return False
 
-        arm1_action = np.array(arm1_action)
-        arm2_action = np.array(arm2_action)
+        arm_left_action = np.array(arm_left_action)
+        arm_right_action = np.array(arm_right_action)
 
-        if len(arm1_action) != 7 or len(arm2_action) != 7:
+        if len(arm_left_action) != 7 or len(arm_right_action) != 7:
+            logger.error("Invalid action vector dimensions")
             raise ValueError("Action vectors must have 7 dimensions: [x, y, z, roll, pitch, yaw, gripper]")
 
-        # Extract Cartesian positions (x, y, z, roll, pitch, yaw)
-        arm1_cartesian = arm1_action[:6]
-        arm2_cartesian = arm2_action[:6]
+        # Extract Cartesian deltas (x, y, z, roll, pitch, yaw)
+        arm_left_delta = arm_left_action[:6]
+        arm_right_delta = arm_right_action[:6]
+
+        # Get current Cartesian positions
+        logger.debug("Getting current Cartesian positions")
+        arm_left_current = np.array(self.arm_left_driver.get_cartesian_positions())
+        arm_right_current = np.array(self.arm_right_driver.get_cartesian_positions())
+
+        # Compute new target positions as current + delta
+        arm_left_cartesian = arm_left_current + arm_left_delta
+        arm_right_cartesian = arm_right_current + arm_right_delta
 
         # Extract gripper commands
-        arm1_gripper = arm1_action[6]
-        arm2_gripper = arm2_action[6]
+        arm_left_gripper = arm_left_action[6]
+        arm_right_gripper = arm_right_action[6]
 
-        print(f"[INFO] Executing action:")
-        print(f"  Arm 1: position={arm1_cartesian}, gripper={arm1_gripper}")
-        print(f"  Arm 2: position={arm2_cartesian}, gripper={arm2_gripper}")
+        logger.info(f"Executing action - Left Arm target: {arm_left_cartesian}, gripper: {arm_left_gripper}")
+        logger.info(f"Executing action - Right Arm target: {arm_right_cartesian}, gripper: {arm_right_gripper}")
+        logger.debug(f"Left Arm delta: {arm_left_delta}")
+        logger.debug(f"Right Arm delta: {arm_right_delta}")
+
+        # Create action execution table
+        table = Table(title="🎯 Executing Action", show_header=True, header_style="bold yellow")
+        table.add_column("Arm", style="cyan", width=10)
+        table.add_column("Current", style="dim")
+        table.add_column("Delta", style="blue")
+        table.add_column("Target", style="green")
+        table.add_column("Gripper", style="magenta", justify="center")
+        
+        def format_vec(vec):
+            return f"[{', '.join([f'{x:6.3f}' for x in vec])}]"
+        
+        gripper_icons = {1.0: "🟢 Open", -1.0: "🔴 Close", 0.0: "⚪ Hold"}
+        
+        table.add_row(
+            "Left Arm",
+            format_vec(arm_left_current),
+            format_vec(arm_left_delta),
+            format_vec(arm_left_cartesian),
+            gripper_icons.get(arm_left_gripper, f"{arm_left_gripper:.1f}")
+        )
+        table.add_row(
+            "Right Arm",
+            format_vec(arm_right_current),
+            format_vec(arm_right_delta),
+            format_vec(arm_right_cartesian),
+            gripper_icons.get(arm_right_gripper, f"{arm_right_gripper:.1f}")
+        )
+        
+        console.print(table)
 
         # Set Cartesian positions for both arms
-        self.arm1_driver.set_cartesian_positions(
-            arm1_cartesian,
+        logger.debug("Setting Cartesian positions for both arms")
+        self.arm_left_driver.set_cartesian_positions(
+            arm_left_cartesian,
             trossen_arm.InterpolationSpace.cartesian
         )
-        self.arm2_driver.set_cartesian_positions(
-            arm2_cartesian,
+        self.arm_right_driver.set_cartesian_positions(
+            arm_right_cartesian,
             trossen_arm.InterpolationSpace.cartesian
         )
 
-        # Wait for movement to complete or check for shutdown
-        elapsed = 0.0
-        while elapsed < duration:
-            if self.shutdown_requested:
-                return False
-            time.sleep(0.1)
-            elapsed += 0.1
+        # Wait for movement to complete with progress bar
+        logger.debug(f"Waiting for movement completion ({duration}s)")
+        with Progress(console=console) as progress:
+            task = progress.add_task("[cyan]Moving arms...", total=duration * 10)
+            elapsed = 0.0
+            while elapsed < duration:
+                if self.shutdown_requested:
+                    logger.warning("Shutdown requested during movement")
+                    return False
+                time.sleep(0.1)
+                elapsed += 0.1
+                progress.update(task, advance=1)
 
         # Control grippers
-        self._set_gripper(self.arm1_driver, arm1_gripper)
-        self._set_gripper(self.arm2_driver, arm2_gripper)
+        logger.debug(f"Controlling grippers - Left Arm: {arm_left_gripper}, Right Arm: {arm_right_gripper}")
+        self._set_gripper(self.arm_left_driver, arm_left_gripper)
+        self._set_gripper(self.arm_right_driver, arm_right_gripper)
 
+        console.print("[bold green]✓ Action completed[/bold green]\n")
+        logger.info("Action execution completed successfully")
         return True
 
     def _set_gripper(self, driver, gripper_value):
@@ -177,54 +302,118 @@ class DualFollowerController:
         """
         if gripper_value > 0:
             # Open gripper
+            logger.debug("Opening gripper")
             driver.set_gripper_mode(trossen_arm.Mode.external_effort)
             driver.set_gripper_external_effort(20.0, 2.0, True)
         elif gripper_value < 0:
             # Close gripper
+            logger.debug("Closing gripper")
             driver.set_gripper_mode(trossen_arm.Mode.external_effort)
             driver.set_gripper_external_effort(-20.0, 2.0, True)
-        # If gripper_value == 0, do nothing
+        else:
+            logger.debug("Gripper state unchanged")
 
     def return_to_sleep(self):
         """Return both arms to their sleep positions."""
-        if self.arm1_driver is None or self.arm2_driver is None:
+        if self.arm_left_driver is None or self.arm_right_driver is None:
+            logger.warning("Drivers not initialized, skipping return to sleep")
             return
 
-        print("[INFO] Returning to sleep positions...")
+        console.print(Panel("💤 [bold cyan]Returning to Sleep Positions[/bold cyan]"))
+        logger.info("Returning arms to sleep positions")
 
         try:
             # Set position mode
-            self.arm1_driver.set_arm_modes(trossen_arm.Mode.position)
-            self.arm2_driver.set_arm_modes(trossen_arm.Mode.position)
+            logger.debug("Setting position mode for sleep return")
+            self.arm_left_driver.set_arm_modes(trossen_arm.Mode.position)
+            self.arm_right_driver.set_arm_modes(trossen_arm.Mode.position)
 
             # Move to sleep positions
-            self.arm1_driver.set_arm_positions(
-                self.arm1_sleep_positions,
+            logger.debug(f"Moving Left Arm to sleep position: {self.arm_left_sleep_positions}")
+            self.arm_left_driver.set_arm_positions(
+                self.arm_left_sleep_positions,
                 3.0,
                 True
             )
-            self.arm2_driver.set_arm_positions(
-                self.arm2_sleep_positions,
+            logger.debug(f"Moving Right Arm to sleep position: {self.arm_right_sleep_positions}")
+            self.arm_right_driver.set_arm_positions(
+                self.arm_right_sleep_positions,
                 3.0,
                 True
             )
 
-            print("[INFO] Returned to sleep positions.")
+            console.print("[bold green]✓ Returned to sleep positions[/bold green]")
+            logger.info("Successfully returned to sleep positions")
         except Exception as e:
-            print(f"[ERROR] Failed to return to sleep: {e}")
+            console.print(f"[bold red]✗ Failed to return to sleep: {e}[/bold red]")
+            logger.error(f"Failed to return to sleep: {e}", exc_info=True)
 
     def cleanup(self):
         """Cleanup resources and return to sleep."""
+        logger.info("Starting cleanup")
         self.return_to_sleep()
-        print("[INFO] Cleanup complete.")
+        console.print("[bold green]✓ Cleanup complete[/bold green]")
+        logger.info("Cleanup complete")
 
 
 def main():
     """Main execution function with example usage."""
+    global logger
+    
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(
+        description="Dual Follower Cartesian Control Demo",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Verbosity levels:
+  error   - Only critical errors
+  warning - Errors and warnings
+  info    - General information (default)
+  debug   - Detailed debugging information
+
+Examples:
+  python dual_follower_cartesian_control.py -v error       # Minimal output
+  python dual_follower_cartesian_control.py -v debug       # Maximum verbosity
+  python dual_follower_cartesian_control.py --arm-left 192.168.1.4 --arm-right 192.168.1.5
+        """
+    )
+    parser.add_argument(
+        '-v', '--verbosity',
+        type=str,
+        choices=['error', 'warning', 'info', 'debug'],
+        default='info',
+        help='Set logging verbosity (default: info)'
+    )
+    parser.add_argument(
+        '--arm-left',
+        type=str,
+        default='192.168.1.4',
+        help='IP address of left follower arm (default: 192.168.1.4)'
+    )
+    parser.add_argument(
+        '--arm-right',
+        type=str,
+        default='192.168.1.5',
+        help='IP address of right follower arm (default: 192.168.1.5)'
+    )
+    
+    args = parser.parse_args()
+    
+    # Setup logging
+    logger = setup_logging(args.verbosity)
+    logger.info(f"Logging verbosity set to {args.verbosity.upper()}")
+    
+    console.print(Panel.fit(
+        "[bold cyan]Dual Follower Cartesian Control Demo[/bold cyan]\n"
+        "Press [bold red]Ctrl+C[/bold red] at any time to safely return to sleep positions",
+        border_style="blue"
+    ))
+    
     # Initialize controller
+    logger.info(f"Initializing controller with Left Arm: {args.arm_left}, Right Arm: {args.arm_right}")
     controller = DualFollowerController(
-        arm1_ip='192.168.1.2',
-        arm2_ip='192.168.1.3'
+        arm_left_ip=args.arm_left,
+        arm_right_ip=args.arm_right
     )
 
     try:
@@ -236,33 +425,43 @@ def main():
         # and workspace limits
 
         # Action 1: Move both arms forward and up, open grippers
-        action1_arm1 = [0.3, 0.0, 0.2, 0.0, 0.0, 0.0, 1.0]  # Open gripper (1.0)
-        action1_arm2 = [0.3, 0.0, 0.2, 0.0, 0.0, 0.0, 1.0]
+        action_left = [0.9, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]  # Open gripper (1.0)
+        action_right = [0.9, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
 
-        print("\n[INFO] Executing Action 1...")
-        if not controller.execute_action(action1_arm1, action1_arm2, duration=3.0):
+        console.print(Panel("📍 [bold yellow]Action 1: Move Forward & Open Grippers[/bold yellow]"))
+        logger.info("Starting Action 1")
+        if not controller.execute_action(action_left, action_right, duration=3.0):
+            logger.warning("Action 1 interrupted")
             return
 
         time.sleep(1.0)
 
-        # Action 2: Move arms to different positions, close grippers
-        action2_arm1 = [0.35, 0.1, 0.15, 0.0, 0.0, 0.5, -1.0]  # Close gripper (-1.0)
-        action2_arm2 = [0.35, -0.1, 0.15, 0.0, 0.0, -0.5, -1.0]
+        # # Action 2: Move arms to different positions, close grippers
+        # action_left = [0.0, 0.1, 0.0, 0.0, 0.0, 0.0, -1.0]  # Close gripper (-1.0)
+        # action_right = [0.0, 0.1, 0.0, 0.0, 0.0, 0.0, -1.0]
 
-        print("\n[INFO] Executing Action 2...")
-        if not controller.execute_action(action2_arm1, action2_arm2, duration=3.0):
-            return
+        # console.print(Panel("📍 [bold yellow]Action 2: Move to Position & Close Grippers[/bold yellow]"))
+        # if not controller.execute_action(action_left, action_right, duration=3.0):
+        #     return
 
-        time.sleep(1.0)
+        # time.sleep(1.0)
 
         # Add more actions as needed...
 
-        print("\n[INFO] All actions completed successfully.")
+        console.print(Panel.fit(
+            "🎉 [bold green]All Actions Completed Successfully![/bold green]",
+            border_style="green"
+        ))
+        logger.info("All actions completed successfully")
 
     except Exception as e:
-        print(f"[ERROR] An error occurred: {e}")
+        console.print(Panel(
+            f"[bold red]✗ An error occurred:[/bold red]\n{e}",
+            border_style="red"
+        ))
+        logger.error(f"An error occurred: {e}", exc_info=True)
         import traceback
-        traceback.print_exc()
+        console.print(traceback.format_exc())
 
     finally:
         # Always cleanup and return to sleep
