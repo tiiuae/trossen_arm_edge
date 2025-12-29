@@ -28,24 +28,24 @@
 
 """
 Purpose:
-    Control two follower arms using Cartesian action vectors.
-    Each action vector has 7 dimensions: [x, y, z, roll, pitch, yaw, gripper]
+    Control two follower arms using Cartesian action vector.
+    Action vector has 14 dimensions: [x, y, z, roll, pitch, yaw, gripper, x, y, z, roll, pitch, yaw, gripper]
 
 Hardware setup:
-    1. WXAI V0 arm with follower end effector at IP 192.168.1.2 (Left Arm)
-    2. WXAI V0 arm with follower end effector at IP 192.168.1.3 (Right Arm)
+    1. WXAI V0 arm with follower end effector at IP 192.168.1.5 (Left Arm)
+    2. WXAI V0 arm with follower end effector at IP 192.168.1.4 (Right Arm)
 
 The script:
     1. Initializes and configures both follower arms
     2. Records sleep positions
-    3. Executes movements based on action vectors
+    3. Executes movements based on action vector
     4. Returns to sleep position on completion or Ctrl+C
 """
 
 import argparse
 import logging
 import signal
-import sys
+import threading
 import time
 
 import numpy as np
@@ -60,11 +60,12 @@ import trossen_arm
 
 console = Console()
 
+
 # Configure logging with Rich handler
 def setup_logging(verbosity: str) -> logging.Logger:
     """
     Setup logging with Rich handler.
-    
+
     Args:
         verbosity: 'error', 'warning', 'info', or 'debug'
     """
@@ -75,17 +76,18 @@ def setup_logging(verbosity: str) -> logging.Logger:
         'debug': logging.DEBUG
     }
     level = level_map.get(verbosity.lower(), logging.INFO)
-    
+
     logging.basicConfig(
         level=level,
         format="%(message)s",
         datefmt="[%X]",
         handlers=[RichHandler(console=console, rich_tracebacks=True, show_path=False)]
     )
-    
+
     logger = logging.getLogger("dual_follower")
     logger.setLevel(level)
     return logger
+
 
 # Global logger (will be initialized in main)
 logger = None
@@ -123,7 +125,8 @@ class DualFollowerController:
         """Initialize and configure both arm drivers."""
         console.print(Panel.fit("🤖 [bold cyan]Initializing Dual Follower Controller[/bold cyan]"))
         logger.info("Starting initialization process")
-        
+
+        # Initialize drivers with progress bar
         with Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
@@ -134,7 +137,7 @@ class DualFollowerController:
             self.arm_left_driver = trossen_arm.TrossenArmDriver()
             self.arm_right_driver = trossen_arm.TrossenArmDriver()
             progress.update(task1, completed=True)
-            
+
             task2 = progress.add_task("[cyan]Configuring drivers...", total=None)
             logger.debug(f"Configuring Left Arm at {self.arm_left_ip}")
             self.arm_left_driver.configure(
@@ -151,7 +154,7 @@ class DualFollowerController:
                 False
             )
             progress.update(task2, completed=True)
-            
+
             task3 = progress.add_task("[cyan]Setting position mode...", total=None)
             logger.debug("Setting arms to position mode")
             self.arm_left_driver.set_arm_modes(trossen_arm.Mode.position)
@@ -168,9 +171,9 @@ class DualFollowerController:
 
         # Create sleep positions table
         table = Table(title="💤 Sleep Positions", show_header=True, header_style="bold magenta")
-        table.add_column("Arm", style="cyan", width=12)
-        table.add_column("Position Vector", style="green")
-        
+        table.add_column("Arm", style="cyan", width=40)
+        table.add_column("Position Vector", style="green", width=80)
+
         table.add_row(
             f"Left Arm ({self.arm_left_ip})",
             f"[{', '.join([f'{x:.3f}' for x in self.arm_left_sleep_positions])}]"
@@ -179,7 +182,7 @@ class DualFollowerController:
             f"Right Arm ({self.arm_right_ip})",
             f"[{', '.join([f'{x:.3f}' for x in self.arm_right_sleep_positions])}]"
         )
-        
+
         console.print(table)
         console.print("[bold green]✓ Initialization complete[/bold green]\n")
         logger.info("Initialization complete")
@@ -240,12 +243,12 @@ class DualFollowerController:
         table.add_column("Delta", style="blue")
         table.add_column("Target", style="green")
         table.add_column("Gripper", style="magenta", justify="center")
-        
+
         def format_vec(vec):
             return f"[{', '.join([f'{x:6.3f}' for x in vec])}]"
-        
+
         gripper_icons = {1.0: "🟢 Open", -1.0: "🔴 Close", 0.0: "⚪ Hold"}
-        
+
         table.add_row(
             "Left Arm",
             format_vec(arm_left_current),
@@ -260,19 +263,25 @@ class DualFollowerController:
             format_vec(arm_right_cartesian),
             gripper_icons.get(arm_right_gripper, f"{arm_right_gripper:.1f}")
         )
-        
+
         console.print(table)
 
-        # Set Cartesian positions for both arms
-        logger.debug("Setting Cartesian positions for both arms")
-        self.arm_left_driver.set_cartesian_positions(
-            arm_left_cartesian,
-            trossen_arm.InterpolationSpace.cartesian
+        # Set Cartesian positions for both arms in parallel
+        logger.debug("Setting Cartesian positions for both arms in parallel")
+
+        left_thread = threading.Thread(
+            target=self.arm_left_driver.set_cartesian_positions,
+            args=(arm_left_delta, trossen_arm.InterpolationSpace.cartesian)
         )
-        self.arm_right_driver.set_cartesian_positions(
-            arm_right_cartesian,
-            trossen_arm.InterpolationSpace.cartesian
+        right_thread = threading.Thread(
+            target=self.arm_right_driver.set_cartesian_positions,
+            args=(arm_right_delta, trossen_arm.InterpolationSpace.cartesian)
         )
+
+        left_thread.start()
+        right_thread.start()
+        left_thread.join()
+        right_thread.join()
 
         # Wait for movement to complete with progress bar
         logger.debug(f"Waiting for movement completion ({duration}s)")
@@ -287,10 +296,22 @@ class DualFollowerController:
                 elapsed += 0.1
                 progress.update(task, advance=1)
 
-        # Control grippers
-        logger.debug(f"Controlling grippers - Left Arm: {arm_left_gripper}, Right Arm: {arm_right_gripper}")
-        self._set_gripper(self.arm_left_driver, arm_left_gripper)
-        self._set_gripper(self.arm_right_driver, arm_right_gripper)
+        # Control grippers in parallel
+        logger.debug(f"Controlling grippers in parallel - Left Arm: {arm_left_gripper}, Right Arm: {arm_right_gripper}")
+
+        left_gripper_thread = threading.Thread(
+            target=self._set_gripper,
+            args=(self.arm_left_driver, arm_left_gripper)
+        )
+        right_gripper_thread = threading.Thread(
+            target=self._set_gripper,
+            args=(self.arm_right_driver, arm_right_gripper)
+        )
+
+        left_gripper_thread.start()
+        right_gripper_thread.start()
+        left_gripper_thread.join()
+        right_gripper_thread.join()
 
         console.print("[bold green]✓ Action completed[/bold green]\n")
         logger.info("Action execution completed successfully")
@@ -363,7 +384,7 @@ class DualFollowerController:
 def main():
     """Main execution function with example usage."""
     global logger
-    
+
     # Parse command-line arguments
     parser = argparse.ArgumentParser(
         description="Dual Follower Cartesian Control Demo",
@@ -400,19 +421,19 @@ Examples:
         default='192.168.1.5',
         help='IP address of right follower arm (default: 192.168.1.5)'
     )
-    
+
     args = parser.parse_args()
-    
+
     # Setup logging
     logger = setup_logging(args.verbosity)
     logger.info(f"Logging verbosity set to {args.verbosity.upper()}")
-    
+
     console.print(Panel.fit(
         "[bold cyan]Dual Follower Cartesian Control Demo[/bold cyan]\n"
         "Press [bold red]Ctrl+C[/bold red] at any time to safely return to sleep positions",
         border_style="blue"
     ))
-    
+
     # Initialize controller
     logger.info(f"Initializing controller with Left Arm: {args.arm_left}, Right Arm: {args.arm_right}")
     controller = DualFollowerController(
@@ -430,7 +451,7 @@ Examples:
         # Note: Adjust these values based on your specific arm configuration
         # and workspace limits
 
-        # Action 1: Move both arms forward and up, open grippers
+        # Action 1: from generated by VLA
         action = [
             0.5929722785949707,   # left_x
             -0.8700209259986877,  # left_y
@@ -450,16 +471,15 @@ Examples:
 
         console.print(Panel("📍 [bold yellow]Action 1: Move Forward & Open Grippers[/bold yellow]"))
         logger.info("Starting Action 1")
-        if not controller.execute_action(action, duration=3.0):
+        if not controller.execute_action(action, duration=1.0):
             logger.warning("Action 1 interrupted")
             return
-
         time.sleep(1.0)
 
         # # Action 2: Move arms to different positions, close grippers
         # action = [
-        #     0.0, 0.1, 0.0, 0.0, 0.0, 0.0, -1.0,  # Left arm
-        #     0.0, 0.1, 0.0, 0.0, 0.0, 0.0, -1.0   # Right arm
+        #     0.0, 0.0, 0.3, 0.0, 0.0, 0.0, -1.0,  # Left arm
+        #     0.0, 0.0, 0.3, 0.0, 0.0, 0.0, -1.0   # Right arm
         # ]
 
         # console.print(Panel("📍 [bold yellow]Action 2: Move to Position & Close Grippers[/bold yellow]"))
