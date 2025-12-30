@@ -1,5 +1,26 @@
 # Trossen Arm
 
+## Installation
+
+This package requires installation of dependencies. Install using pip:
+
+```bash
+pip install trossen-arm
+```
+
+## Python Demo Codes
+
+The package includes various Python demo scripts located in the `demos/python/` directory. These demos demonstrate different functionalities of the Trossen Arm, including:
+
+- Cartesian position and velocity control
+- Joint control
+- Gravity compensation
+- Teleoperation
+- Gripper control
+- And more...
+
+To use the demos, navigate to the `demos/python/` directory and run any of the example scripts.
+
 ## Quick Access Setup for Home-to-Sleep Script
 
 For easy access to the `home_to_sleep.py` script from anywhere in the terminal, a wrapper script and alias have been set up.
