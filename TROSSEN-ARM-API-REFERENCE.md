@@ -265,12 +265,14 @@ output.cartesian.external_efforts
 
 ### **Joint Limits** (`JointLimit` Class)
 ```python
+from math import pi
+
 limits = driver.get_joint_limits()  # List[JointLimit]
 
 # Modify limits
 for limit in limits:
-    limit.position_min = -π          # rad or m
-    limit.position_max = π
+    limit.position_min = -pi         # rad or m
+    limit.position_max = pi
     limit.velocity_max = 2.0         # rad/s or m/s
     limit.effort_max = 10.0          # Nm or N
     limit.position_tolerance = 0.01  # rad or m
@@ -394,7 +396,7 @@ Dynamic-size list of doubles (like Python list of floats)
 
 ### **Link** (Robot link properties)
 ```python
-link.mass                # kg
+link.mass               # kg
 link.inertia            # 3x3 inertia matrix
 link.origin_xyz         # [x, y, z]
 link.origin_rpy         # [roll, pitch, yaw]
