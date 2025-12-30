@@ -45,7 +45,6 @@ The script:
 import argparse
 import logging
 import signal
-import threading
 import time
 
 import numpy as np
@@ -269,19 +268,16 @@ class DualFollowerController:
         # Set Cartesian positions for both arms in parallel
         logger.debug("Setting Cartesian positions for both arms in parallel")
 
-        left_thread = threading.Thread(
-            target=self.arm_left_driver.set_cartesian_positions,
-            args=(arm_left_delta, trossen_arm.InterpolationSpace.cartesian)
+        self.arm_left_driver.set_cartesian_positions(
+            arm_left_delta,
+            trossen_arm.InterpolationSpace.cartesian,
+            blocking=False
         )
-        right_thread = threading.Thread(
-            target=self.arm_right_driver.set_cartesian_positions,
-            args=(arm_right_delta, trossen_arm.InterpolationSpace.cartesian)
+        self.arm_right_driver.set_cartesian_positions(
+            arm_right_delta,
+            trossen_arm.InterpolationSpace.cartesian,
+            blocking=False
         )
-
-        left_thread.start()
-        right_thread.start()
-        left_thread.join()
-        right_thread.join()
 
         # Wait for movement to complete with progress bar
         logger.debug(f"Waiting for movement completion ({duration}s)")
@@ -299,19 +295,8 @@ class DualFollowerController:
         # Control grippers in parallel
         logger.debug(f"Controlling grippers in parallel - Left Arm: {arm_left_gripper}, Right Arm: {arm_right_gripper}")
 
-        left_gripper_thread = threading.Thread(
-            target=self._set_gripper,
-            args=(self.arm_left_driver, arm_left_gripper)
-        )
-        right_gripper_thread = threading.Thread(
-            target=self._set_gripper,
-            args=(self.arm_right_driver, arm_right_gripper)
-        )
-
-        left_gripper_thread.start()
-        right_gripper_thread.start()
-        left_gripper_thread.join()
-        right_gripper_thread.join()
+        self._set_gripper(self.arm_left_driver, arm_left_gripper)
+        self._set_gripper(self.arm_right_driver, arm_right_gripper)
 
         console.print("[bold green]✓ Action completed[/bold green]\n")
         logger.info("Action execution completed successfully")
@@ -329,12 +314,12 @@ class DualFollowerController:
             # Open gripper
             logger.debug("Opening gripper")
             driver.set_gripper_mode(trossen_arm.Mode.external_effort)
-            driver.set_gripper_external_effort(20.0, 2.0, True)
+            driver.set_gripper_external_effort(20.0, 2.0, blocking=False)
         elif gripper_value < 0:
             # Close gripper
             logger.debug("Closing gripper")
             driver.set_gripper_mode(trossen_arm.Mode.external_effort)
-            driver.set_gripper_external_effort(-20.0, 2.0, True)
+            driver.set_gripper_external_effort(-20.0, 2.0, blocking=False)
         else:
             logger.debug("Gripper state unchanged")
 

@@ -50,7 +50,6 @@ import argparse
 import json
 import logging
 import signal
-import threading
 import time
 from pathlib import Path
 
@@ -275,17 +274,8 @@ class DualJointController:
         # Set joint positions for both arms in parallel
         logger.debug("Setting joint positions for both arms in parallel")
 
-        left_thread = threading.Thread(
-            target=self.arm_left_driver.set_arm_positions,
-            args=(arm_left_joints, duration, True)
-        )
-        right_thread = threading.Thread(
-            target=self.arm_right_driver.set_arm_positions,
-            args=(arm_right_joints, duration, True)
-        )
-
-        left_thread.start()
-        right_thread.start()
+        self.arm_left_driver.set_arm_positions(arm_left_joints, duration, blocking=False)
+        self.arm_right_driver.set_arm_positions(arm_right_joints, duration, blocking=False)
 
         # Wait for movement to complete with progress bar
         logger.debug(f"Waiting for movement completion ({duration}s)")
@@ -295,33 +285,16 @@ class DualJointController:
             while elapsed < duration:
                 if self.shutdown_requested:
                     logger.warning("Shutdown requested during movement")
-                    # Wait for threads to complete
-                    left_thread.join()
-                    right_thread.join()
                     return False
                 time.sleep(0.1)
                 elapsed += 0.1
                 progress.update(task, advance=1)
 
-        left_thread.join()
-        right_thread.join()
-
         # Control grippers in parallel
         logger.debug(f"Controlling grippers in parallel - Right Arm: {arm_right_gripper}, Left Arm: {arm_left_gripper}")
 
-        left_gripper_thread = threading.Thread(
-            target=self._set_gripper,
-            args=(self.arm_left_driver, arm_left_gripper)
-        )
-        right_gripper_thread = threading.Thread(
-            target=self._set_gripper,
-            args=(self.arm_right_driver, arm_right_gripper)
-        )
-
-        left_gripper_thread.start()
-        right_gripper_thread.start()
-        left_gripper_thread.join()
-        right_gripper_thread.join()
+        self._set_gripper(self.arm_left_driver, arm_left_gripper)
+        self._set_gripper(self.arm_right_driver, arm_right_gripper)
 
         console.print("[bold green]✓ Action completed[/bold green]\n")
         logger.info("Action execution completed successfully")
@@ -339,12 +312,12 @@ class DualJointController:
             # Open gripper
             logger.debug("Opening gripper")
             driver.set_gripper_mode(trossen_arm.Mode.external_effort)
-            driver.set_gripper_external_effort(20.0, 2.0, True)
+            driver.set_gripper_external_effort(20.0, 2.0, blocking=False)
         elif gripper_value < 0:
             # Close gripper
             logger.debug("Closing gripper")
             driver.set_gripper_mode(trossen_arm.Mode.external_effort)
-            driver.set_gripper_external_effort(-20.0, 2.0, True)
+            driver.set_gripper_external_effort(-20.0, 2.0, blocking=False)
         else:
             logger.debug("Gripper state unchanged")
 
@@ -367,19 +340,8 @@ class DualJointController:
             logger.debug(f"Moving Left Arm to sleep position: {self.arm_left_sleep_positions}")
             logger.debug(f"Moving Right Arm to sleep position: {self.arm_right_sleep_positions}")
 
-            left_thread = threading.Thread(
-                target=self.arm_left_driver.set_arm_positions,
-                args=(self.arm_left_sleep_positions, 3.0, True)
-            )
-            right_thread = threading.Thread(
-                target=self.arm_right_driver.set_arm_positions,
-                args=(self.arm_right_sleep_positions, 3.0, True)
-            )
-
-            left_thread.start()
-            right_thread.start()
-            left_thread.join()
-            right_thread.join()
+            self.arm_left_driver.set_arm_positions(self.arm_left_sleep_positions, 3.0, blocking=True)
+            self.arm_right_driver.set_arm_positions(self.arm_right_sleep_positions, 3.0, blocking=True)
 
             console.print("[bold green]✓ Returned to sleep positions[/bold green]")
             logger.info("Successfully returned to sleep positions")
