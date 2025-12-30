@@ -39,7 +39,7 @@ Pre-configured end-effector properties:
 
 ### **`EndEffector` Class Properties**
 ```python
-end_effector.t_flange_tool        # 4x4 transformation matrix (flange → tool)
+end_effector.t_flange_tool         # 4x4 transformation matrix (flange → tool)
 end_effector.mass                  # End-effector mass (kg)
 end_effector.palm                  # Gripper palm width (m)
 end_effector.finger_left           # Left finger length (m)
@@ -89,8 +89,9 @@ driver.cleanup(reboot_controller=False)
 **Joint Space:**
 ```python
 # Set all joints
+from math import pi
 driver.set_all_positions(
-    goal_positions=[0.0, π/2, π/2, 0.0, 0.0, 0.0, 0.0],  # rad or m
+    goal_positions=[0.0, pi/2, pi/2, 0.0, 0.0, 0.0, 0.0], # rad or m
     goal_time=2.0,                                        # seconds
     blocking=True,                                        # wait for completion
     goal_feedforward_velocities=None,                     # optional
