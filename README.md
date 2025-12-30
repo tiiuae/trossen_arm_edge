@@ -2,7 +2,20 @@
 
 ## Installation
 
-This package requires installation of dependencies. Install using pip:
+This package requires installation of dependencies. 
+
+### Option 1: Using Conda Environment (Recommended)
+
+You can create a conda environment with all required dependencies using the provided `environment.yml` file:
+
+```bash
+conda env create -f environment.yml -n trossen-arm-env
+conda activate trossen-arm-env
+```
+
+### Option 2: Using pip
+
+Install using pip:
 
 ```bash
 pip install trossen-arm
