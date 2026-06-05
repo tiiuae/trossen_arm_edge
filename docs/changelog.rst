@@ -5,11 +5,70 @@ Changelog
 Trossen Arm Driver
 ==================
 
+1.10.0
+------
+
+- Replaced the built-in ``spdlog`` dependency with a custom logging frontend, and exposed a backend hook so users can plug in the logging library of their choice.
+  Related example scripts demonstrate how to use ``spdlog`` in C++ or the standard ``logging`` module or `loguru <https://github.com/Delgan/loguru>`_ in Python.
+  See the :ref:`getting_started/demo_scripts:`error_recovery_and_logging`_` demo for details.
+- Fixed parsing of some error messages surfaced from the OS, e.g., now you should get ``Failed to send UDP message to 192.168.1.2:50000 due to Network is unreachable`` instead of ``due to Success``.
+- :member:`trossen_arm::StandardMotorParameters::wxai_v0_default` now aliases :member:`trossen_arm::StandardMotorParameters::wxai_v0_20260317`, completing the default parameter change announced in v1.9.3.
+  The same gains ship as the boot defaults in Arm Controller firmware v1.10.0, so arms running matched firmware and driver use the new tuning out of the box.
+  The corresponding :enumerator:`trossen_arm::Notice::default_motor_parameters_20260317` has been suppressed.
+
+1.9.3
+-----
+
+- Added :func:`trossen_arm::TrossenArmDriver::discover`, a static method that scans a subnet for reachable arm controllers and returns a :class:`trossen_arm::DiscoverResult` for each one with its model, firmware version, IP, and error state.
+  Demonstrated in the :ref:`getting_started/demo_scripts:`arm_discovery`_` demo.
+- Promoted :enum:`trossen_arm::ErrorState` and the :var:`trossen_arm::ERROR_INFORMATION`, :var:`trossen_arm::MODEL_NAME`, and :var:`trossen_arm::MODE_NAME` maps from private to public so user code can render error and identifier strings.
+- Added a ``trossen-arm`` :doc:`command-line tool <getting_started/cli>` with ``discover``, ``identify``, and ``usage`` subcommands.
+  Install it alongside the Python package via ``pip install "trossen_arm[cli]"``.
+- :func:`trossen_arm::TrossenArmDriver::configure` now respects small ``timeout`` values without depending on operating system's TCP connection timeout.
+- Added :func:`trossen_arm::TrossenArmDriver::clear_error`, a convenience method that internally calls :func:`trossen_arm::TrossenArmDriver::cleanup` with ``reboot_controller = false`` and then :func:`trossen_arm::TrossenArmDriver::configure` with ``clear_error = true``.
+- Added :class:`trossen_arm::StandardMotorParameters`, a collection of named, dated motor parameter sets that can be passed to :func:`trossen_arm::TrossenArmDriver::set_motor_parameters` instead of hand-tuning gains.
+  The currently shipped sets are :member:`trossen_arm::StandardMotorParameters::wxai_v0_20250509` and :member:`trossen_arm::StandardMotorParameters::wxai_v0_20260317`, with :member:`trossen_arm::StandardMotorParameters::wxai_v0_default` aliasing whichever set is the current default.
+  Demonstrated in the :ref:`getting_started/demo_scripts:`set_motor_parameters`_` demo.
+- Added a notice system for surfacing one-time messages from the driver at startup.
+  Each notice can be silenced individually by calling :func:`trossen_arm::TrossenArmDriver::disable_notice` with the corresponding :enum:`trossen_arm::Notice` value before constructing the driver.
+- Issued :enumerator:`trossen_arm::Notice::default_motor_parameters_20260317`: the default motor parameters will change from :member:`trossen_arm::StandardMotorParameters::wxai_v0_20250509` to :member:`trossen_arm::StandardMotorParameters::wxai_v0_20260317` in the next minor release (v1.10.0).
+  To opt in early or pin to the old defaults, set motor parameters explicitly as in the :ref:`getting_started/demo_scripts:`set_motor_parameters`_` demo.
+- Switching into :enumerator:`trossen_arm::Mode::velocity`, :enumerator:`trossen_arm::Mode::external_effort`, or :enumerator:`trossen_arm::Mode::effort` now starts from a zero command instead of seeding from the latest measurement, preventing unintended motion at the moment the mode changes.
+- Fixed two interpolation issues that caused unstable motion when trajectory goals were updated at a rate close to the trajectory evaluation rate:
+
+  - Trajectory start time is now anchored to the moment ``robot_input_`` is evaluated, so consecutive trajectories remain continuous across transitions regardless of host scheduling.
+  - Pre-run inverse-kinematics feasibility checking on Cartesian trajectories is now opt-in (previously on by default), removing a substantial per-call cost in tight control loops.
+  - Very short trajectory durations are handled robustly: under 1 ms uses a step, under 200 ms uses linear interpolation, otherwise uses linear, cubic, and quintic interpolations for effort, velocity, and position commands with feed-forward terms default to zero when not specified.
+
+- Fixed a race in spdlog logger registration that could throw when multiple :class:`trossen_arm::TrossenArmDriver` instances were constructed concurrently from different threads.
+- Fixed a segfault in the C++ demos: https://github.com/TrossenRobotics/trossen_arm/pull/179.
+- The `C++ demo template <https://github.com/TrossenRobotics/trossen_arm/blob/76599407313fa35589c4573124ed4d2a501baa42/demos/cpp/CMakeLists.txt>`_ now uses a guarded ``find_package(libtrossen_arm)``, so a standalone demo build no longer fails when the package is not pre-installed.
+
+1.9.1
+-----
+
+- Removed the following deprecated getter functions from both C++ and Python APIs.
+  Use the ``get_all_*`` variants instead:
+
+  - ``get_positions`` -> ``get_all_positions``
+  - ``get_velocities`` -> ``get_all_velocities``
+  - ``get_efforts`` -> ``get_all_efforts``
+  - ``get_external_efforts`` -> ``get_all_external_efforts``
+  - ``get_compensation_efforts`` -> ``get_all_compensation_efforts``
+
+- All ``get_*`` functions now return copies instead of ``const`` references.
+  This prevents dangling reference issues when the underlying data is updated by the daemon thread.
+- TCP send and receive timeouts are now both applied using the user-specified timeout value.
+- Fixed an uncaught exception during Ethernet connection handling.
+- Added wheel builds for Python 3.13 on Linux (x86_64 and arm64) and macOS (Apple Silicon).
+- All ``critical`` log messages now append a link to the troubleshooting guide at ``https://docs.trossenrobotics.com/trossen_arm/main/troubleshooting.html``.
+- On successful connection, the driver now logs the client IP address along with the TCP and UDP port numbers.
+
 1.9.0
 -----
 
 - Moved :ref:`getting_started/configuration:position_offset` to EEPROM so it persists across power cycles as other joint characteristics.
-- Added :class:`trossen_arm::RobotOutput::Header` that contains :class:`trossen_arm::RobotOutput::Header::id` and :class:`trossen_arm::RobotOutput::Header::timestamp`.
+- Added :class:`trossen_arm::RobotOutput::Header` that contains :member:`trossen_arm::RobotOutput::Header::id` and :member:`trossen_arm::RobotOutput::Header::timestamp`.
 
 1.8.8
 -----
@@ -193,6 +252,27 @@ Trossen Arm Driver
 Trossen Arm Controller Firmware
 ===============================
 
+1.10.0
+------
+
+- Set the :member:`trossen_arm::StandardMotorParameters::wxai_v0_20260317` motor parameters as default.
+
+1.9.4
+-----
+
+- Switching into :enumerator:`trossen_arm::Mode::velocity`, :enumerator:`trossen_arm::Mode::external_effort`, or :enumerator:`trossen_arm::Mode::effort` now starts from a zero command instead of seeding from the latest measurement, preventing unintended motion at the moment the mode changes.
+- Lowered sensitivity to transient CAN bus failures by triggering motor feedback error on two consecutive lost messages instead of one.
+
+1.9.3
+-----
+
+- Fixed an issue where the controller would sometimes fail to ignore invalid UDP packets, leading to unexpected behavior.
+
+1.9.2
+-----
+
+- Minor improvements to user experience.
+
 1.9.1
 -----
 
@@ -203,7 +283,7 @@ Trossen Arm Controller Firmware
 -----
 
 - Moved :ref:`getting_started/configuration:position_offset` to EEPROM so it persists across power cycles as other joint characteristics.
-- Added :class:`trossen_arm::RobotOutput::Header` that contains :class:`trossen_arm::RobotOutput::Header::id` and :class:`trossen_arm::RobotOutput::Header::timestamp`.
+- Added :class:`trossen_arm::RobotOutput::Header` that contains :member:`trossen_arm::RobotOutput::Header::id` and :member:`trossen_arm::RobotOutput::Header::timestamp`.
 - In multi-motor joints, following motors copy leading motor's command instead of running independently.
 - Bug fixes for multi-motor joint logic.
 

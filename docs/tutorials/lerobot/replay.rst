@@ -2,6 +2,13 @@
 Replaying an Episode
 ====================
 
+.. note::
+
+    Ongoing support for the LeRobot fork is deprecated.
+    We recommend using the :doc:`plugin-based LeRobot integration <../lerobot_plugin>` instead.
+
+    However, this integration is necessary for users who wish to use the :doc:`openpi integration <../openpi>`.
+
 .. warning::
 
     We have introduced a new change in how the values are saved in the dataset.
@@ -24,7 +31,7 @@ Now try to replay the first recorded episode on your robot:
                 --control.type=replay \
                 --control.fps=30 \
                 --control.repo_id=${HF_USER}/trossen_ai_stationary_test \
-                --control.episode=0 \
+                --control.episode=0
 
     .. group-tab:: Trossen AI Mobile
 
@@ -54,7 +61,7 @@ Now try to replay the first recorded episode on your robot:
                 --control.type=replay \
                 --control.fps=30 \
                 --control.repo_id=${HF_USER}/trossen_ai_solo_test \
-                --control.episode=0 \
+                --control.episode=0
 
 .. note::
 
@@ -73,4 +80,4 @@ When using the robot in replay mode you can specify command line arguments to cu
 - ``--control.root`` (str | Path | None): The root directory where the dataset will be stored (e.g. 'dataset/path').
 - ``--control.fps`` (int | None): Limit the frames per second. By default, uses the dataset fps.
 - ``--control.play_sounds`` (bool): Flag to use vocal synthesis to read events.
-- ``--control.local_files_only`` (bool): Flag to use local files only. By default, this script will try to fetch the dataset from the hub if it exists.
+- ``--load-from-hf-hub`` (int): Flag to load dataset from Hugging Face Hub. Set to 0 to use local files only. By default, this script will try to fetch the dataset from the hub if it exists.

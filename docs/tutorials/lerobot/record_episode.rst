@@ -2,10 +2,12 @@
 Record Episodes
 ===============
 
-.. warning::
+.. note::
 
-    Support for the fork-based LeRobot integration has been deprecated.
+    Ongoing support for the LeRobot fork is deprecated.
     We recommend using the :doc:`plugin-based LeRobot integration <../lerobot_plugin>` instead.
+
+    However, this integration is necessary for users who wish to use the :doc:`openpi integration <../openpi>`.
 
 Once you're familiar with teleoperation, you can record your first dataset.
 
@@ -51,59 +53,59 @@ Record two episodes and upload your dataset to the Hugging Face Hub:
                 --control.num_episodes=2 \
                 --control.push_to_hub=true
 
-   .. group-tab:: Trossen AI Mobile
+    .. group-tab:: Trossen AI Mobile
 
-    The Trossen AI Mobile robot supports two teleoperation modes.
-    In the first mode, with motor **torque disabled**, you can manually push the base to collect data.
-    In the second mode, with motor **torque enabled**, you can control the robot using the Remote Control.
-    For details on using the Remote Control, refer to the `Remote Control Operation <https://docs.trossenrobotics.com/slate_docs/operation/rc_controller.html>`_.
+        The Trossen AI Mobile robot supports two teleoperation modes.
+        In the first mode, with motor **torque disabled**, you can manually push the base to collect data.
+        In the second mode, with motor **torque enabled**, you can control the robot using the Remote Control.
+        For details on using the Remote Control, refer to the `Remote Control Operation <https://docs.trossenrobotics.com/slate_docs/operation/rc_controller.html>`_.
 
-    .. note::
+        .. note::
 
-        By default, ``enable_motor_torque`` is set to ``false`` on the Trossen AI Mobile robot.
-        To enable remote control, set it to ``true`` by adding ``--robot.enable_motor_torque=true`` to the command line.
-        If you'd like to change the default behavior, you can modify the ``lerobot/common/robot_devices/robots/configs.py`` file.
+            By default, ``enable_motor_torque`` is set to ``false`` on the Trossen AI Mobile robot.
+            To enable remote control, set it to ``true`` by adding ``--robot.enable_motor_torque=true`` to the command line.
+            If you'd like to change the default behavior, you can modify the ``lerobot/common/robot_devices/robots/configs.py`` file.
 
-    .. tabs::
+        .. tabs::
 
-        .. tab:: Trossen AI Mobile with Torque Disabled
+            .. tab:: Trossen AI Mobile with Torque Disabled
 
-            .. code-block:: bash
-            :emphasize-lines: 12,13
+                .. code-block:: bash
+                    :emphasize-lines: 12,13
 
-            python lerobot/scripts/control_robot.py \
-                --robot.type=trossen_ai_mobile \
-                --robot.max_relative_target=null \
-                --control.type=record \
-                --control.fps=30 \
-                --control.single_task="Test recording episode using Trossen AI Mobile." \
-                --control.repo_id=${HF_USER}/trossen_ai_mobile_test \
-                --control.tags='["tutorial"]' \
-                --control.warmup_time_s=5 \
-                --control.episode_time_s=30 \
-                --control.reset_time_s=30 \
-                --control.num_episodes=2 \
-                --control.push_to_hub=true
+                    python lerobot/scripts/control_robot.py \
+                        --robot.type=trossen_ai_mobile \
+                        --robot.max_relative_target=null \
+                        --control.type=record \
+                        --control.fps=30 \
+                        --control.single_task="Test recording episode using Trossen AI Mobile." \
+                        --control.repo_id=${HF_USER}/trossen_ai_mobile_test \
+                        --control.tags='["tutorial"]' \
+                        --control.warmup_time_s=5 \
+                        --control.episode_time_s=30 \
+                        --control.reset_time_s=30 \
+                        --control.num_episodes=2 \
+                        --control.push_to_hub=true
 
-        .. tab:: Trossen AI Mobile with Torque Enabled
+            .. tab:: Trossen AI Mobile with Torque Enabled
 
-            .. code-block:: bash
-            :emphasize-lines: 12,13,14
+                .. code-block:: bash
+                    :emphasize-lines: 12,13,14
 
-            python lerobot/scripts/control_robot.py \
-                --robot.type=trossen_ai_mobile \
-                --robot.max_relative_target=null \
-                --control.type=record \
-                --control.fps=30 \
-                --control.single_task="Test recording episode using Trossen AI Mobile." \
-                --control.repo_id=${HF_USER}/trossen_ai_mobile_test \
-                --control.tags='["tutorial"]' \
-                --control.warmup_time_s=5 \
-                --control.episode_time_s=30 \
-                --control.reset_time_s=30 \
-                --control.num_episodes=2 \
-                --control.push_to_hub=true \
-                --robot.enable_motor_torque=true
+                    python lerobot/scripts/control_robot.py \
+                        --robot.type=trossen_ai_mobile \
+                        --robot.max_relative_target=null \
+                        --control.type=record \
+                        --control.fps=30 \
+                        --control.single_task="Test recording episode using Trossen AI Mobile." \
+                        --control.repo_id=${HF_USER}/trossen_ai_mobile_test \
+                        --control.tags='["tutorial"]' \
+                        --control.warmup_time_s=5 \
+                        --control.episode_time_s=30 \
+                        --control.reset_time_s=30 \
+                        --control.num_episodes=2 \
+                        --control.push_to_hub=true \
+                        --robot.enable_motor_torque=true
 
     .. group-tab:: Trossen AI Solo
 
@@ -111,25 +113,25 @@ Record two episodes and upload your dataset to the Hugging Face Hub:
             :emphasize-lines: 12,13
 
             python lerobot/scripts/control_robot.py \
-            --robot.type=trossen_ai_solo \
-            --robot.max_relative_target=null \
-            --control.type=record \
-            --control.fps=30 \
-            --control.single_task="Test recording episode using Trossen AI Solo." \
-            --control.repo_id=${HF_USER}/trossen_ai_solo_test \
-            --control.tags='["tutorial"]' \
-            --control.warmup_time_s=5 \
-            --control.episode_time_s=30 \
-            --control.reset_time_s=30 \
-            --control.num_episodes=2 \
-            --control.push_to_hub=true
+                --robot.type=trossen_ai_solo \
+                --robot.max_relative_target=null \
+                --control.type=record \
+                --control.fps=30 \
+                --control.single_task="Test recording episode using Trossen AI Solo." \
+                --control.repo_id=${HF_USER}/trossen_ai_solo_test \
+                --control.tags='["tutorial"]' \
+                --control.warmup_time_s=5 \
+                --control.episode_time_s=30 \
+                --control.reset_time_s=30 \
+                --control.num_episodes=2 \
+                --control.push_to_hub=true
 
 .. note::
 
     The units for each joint are as follows:
 
     - **Joints 0-5**: Radians
-    - **Joint 6 (Gripper)**: Millimeters (mm)
+    - **Joint 6 (Gripper)**: Meters (m)
 
 .. warning::
 
@@ -143,6 +145,36 @@ Record two episodes and upload your dataset to the Hugging Face Hub:
     The video encoding process can be resource-intensive.
     This can cause longer wait times between episodes, especially if you are recording at longer episode lengths.
     To mitigate this, consider adjusting the ``save_interval`` parameter to save data less frequently or at the end of the entire session.
+
+Stopping the Recording Session
+===============================
+
+There are multiple ways to stop or exit the recording session. The recommended approach is to use keyboard controls for graceful shutdown.
+
+Keyboard-based Exit (Recommended)
+----------------------------------
+
+The control loop monitors for these keyboard inputs:
+
+- **Right Arrow** :kbd:`→`: Exits the current loop/episode early
+- **Left Arrow** :kbd:`←`: Exits and re-records the last episode
+- **Escape** :kbd:`Esc`: Stops the entire recording session
+
+CTRL+C
+------
+
+:kbd:`CTRL+C` **is NOT recommended** as it may not allow the dataset to be saved properly.
+Using :kbd:`CTRL+C`:
+
+- Will terminate the process abruptly
+- May result in the dataset not being saved
+- Can cause potential data loss from the current recording session
+
+.. note::
+
+    The keyboard listener only works in non-headless environments (requires ``pynput`` library).
+    If running headless or if ``pynput`` can't be imported, keyboard controls won't be available and you'd be limited to waiting for the control loop to complete naturally or using :kbd:`CTRL+C` with potential data loss.
+
 
 Handling Camera FPS Issues
 ==========================
@@ -241,7 +273,7 @@ Make sure that you have configured the cameras correctly as described in :ref:`t
                 --control.push_to_hub=true \
                 --control.num_image_writer_threads_per_camera=8 \
                 --control.display_cameras=false \
-                --camera.interface_type=opencv
+                --camera.interface_type='opencv'
 
     .. group-tab:: Trossen AI Mobile
 
@@ -263,7 +295,7 @@ Make sure that you have configured the cameras correctly as described in :ref:`t
                 --control.push_to_hub=true \
                 --control.num_image_writer_threads_per_camera=8 \
                 --control.display_cameras=false \
-                --camera.interface_type=opencv
+                --camera.interface_type='opencv'
 
     .. group-tab:: Trossen AI Solo
 
@@ -285,7 +317,7 @@ Make sure that you have configured the cameras correctly as described in :ref:`t
                 --control.push_to_hub=true \
                 --control.num_image_writer_threads_per_camera=8 \
                 --control.display_cameras=false \
-                --camera.interface_type=opencv
+                --camera.interface_type='opencv'
 
 Recording Configuration
 =======================
@@ -312,7 +344,7 @@ When recording a dataset, you can specify command line arguments to customize th
 - ``--control.display_cameras`` (bool): Flag to display all cameras on screen.
 - ``--control.play_sounds`` (bool): Flag to use vocal synthesis to read events.
 - ``--control.resume`` (bool): Flag to resume recording on an existing dataset.
-- ``--control.local_files_only`` (bool): Flag to use local files only.
+- ``--load-from-hf-hub`` (int): Flag to load dataset from Hugging Face Hub. Set to 0 to use local files only.
 - ``--control.save_interval`` (int): Interval in episodes at which to encode images to video and save data to disk.
    For example, if set to 5, data will be saved every 5 episodes.
    Default is 1 (save after every episode).

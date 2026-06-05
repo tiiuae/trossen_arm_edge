@@ -27,8 +27,10 @@ Firmware releases for the Trossen Arm Controller are listed in the table below:
 
     * - Version
       - Download
-    * - v1.9.2 (Latest)
-      - :download:`wxai_v0 (v1.9.2) </_static/downloads/arm_controller_firmware/wxai_v0/firmware-wxai_v0-v1.9.2.zip>`
+    * - v1.10.0 (Latest)
+      - :download:`wxai_v0 (v1.10.0) </_static/downloads/arm_controller_firmware/wxai_v0/firmware-wxai_v0-v1.10.0.zip>`
+    * - v1.9.4
+      - :download:`wxai_v0 (v1.9.4) </_static/downloads/arm_controller_firmware/wxai_v0/firmware-wxai_v0-v1.9.4.zip>`
     * - v1.8.4
       - :download:`wxai_v0 (v1.8.4) </_static/downloads/arm_controller_firmware/wxai_v0/firmware-wxai_v0-v1.8.4.zip>`
     * - v1.7.7
@@ -63,6 +65,11 @@ Arm Controller STEP Files
 -------------------------
 
 -   :download:`Arm Controller STEPs</_downloads/arm_controller_v0_steps.zip>`
+
+Homing Jigs
+-----------
+
+-   :download:`Homing Jigs</_downloads/homing_jigs.zip>`
 
 CAD Drawings
 ============

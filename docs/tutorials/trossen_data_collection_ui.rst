@@ -14,6 +14,8 @@ The **Trossen AI Data Collection UI** is a Python-based graphical user interface
 It allows users to easily manage robot configurations, record tasks, and streamline data collection with real-time feedback, camera views, task management, and progress tracking.
 This documentation provides a comprehensive guide to setting up, installing, and using the Trossen AI Data Collection UI, including all its features and functionalities.
 
+
+
 Pre-Installation Setup
 ======================
 
@@ -96,6 +98,41 @@ Run the following command to complete the post-installation setup:
 
 Once the desktop icon is created, right-click on it and select **Allow Launching** to ensure the application has the necessary permissions to run.
 
+.. note::
+
+    **Touchscreen Interface Setup**: If you plan to use a touchscreen display with the Trossen AI Data Collection UI, refer to the :doc:`../getting_started/touchscreen` guide for complete hardware setup, cable connections, and touchscreen mapping configuration.
+
+Updating the Application
+========================
+
+To update to the latest version of the **Trossen AI Data Collection UI**, follow these steps:
+
+#. Activate your virtual environment:
+
+   .. code-block:: bash
+
+      conda activate trossen_ai_data_collection_ui_env
+
+#. Update the application package:
+
+   .. code-block:: bash
+
+      pip install trossen_ai_data_collection_ui --upgrade
+
+#. Run the post-installation script:
+
+   .. code-block:: bash
+
+      trossen_ai_data_collection_ui_post_install
+
+   The post-installation script will pull the latest updates from the Interbotix/lerobot repository and rebuild it in your environment.
+
+.. note::
+
+    The UI application uses a local copy of the Interbotix/lerobot repository stored at ``~/.lerobot_trossen_ai_data_collection_ui/``.
+    Do not manually edit files in this directory, as it may cause compatibility issues with the UI application.
+    The post-installation script manages this repository automatically.
+
 Launching the Application
 =========================
 
@@ -113,6 +150,285 @@ Once the installation and post-installation setup are complete, you can launch t
     .. code-block:: bash
 
         trossen_ai_data_collection_ui
+
+
+Application Overview
+====================
+
+The Trossen AI Data Collection UI is organized into several sections, each providing specific functionality for managing and monitoring your data collection sessions.
+
+Menu Bar
+--------
+
+The top menu bar provides access to key application settings and controls:
+
+Edit
+^^^^
+
+The **Edit** menu provides access to configuration editors:
+
+- **Robot Configuration**: Opens a YAML editor to modify robot settings including:
+  
+  - Camera serial numbers and resolutions
+  - Arm IP addresses and models
+  - Motion parameters (``max_relative_target``, ``min_time_to_move_multiplier``)
+  - Camera interface selection
+
+- **Task Configuration**: Opens a YAML editor to modify task settings including:
+  
+  - Task names and descriptions
+  - Episode parameters (length, warmup time, reset time)
+  - Recording settings (FPS, save interval, display FPS)
+  - Hugging Face Hub integration
+  - Operator information
+
+Changes made through these editors are automatically saved and applied to the current session.
+
+Calibration
+^^^^^^^^^^^
+
+The **Calibration** menu provides tools for positioning and calibrating robot arms:
+
+- Pose arms in specific positions for calibration purposes
+- Save arm positions that can be reused later
+- Calibrate sensors connected to the arms
+- Load previously saved positions for consistent setup
+
+Calibration should be performed when:
+
+- You need to save reference positions for your workflow
+- Calibrating sensors attached to the arms
+- Restoring arms to previously saved calibration positions
+
+Quit
+^^^^
+
+The **Quit** menu option safely exits the application.
+
+Keyboard Shortcuts
+------------------
+
+The application supports the following keyboard shortcuts:
+
+Full Screen Toggle (F11)
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+Press :kbd:`F11` to toggle full-screen mode for the application window. This is particularly useful for:
+
+- Moving the application between different displays
+- Maximizing screen real estate on the touchscreen display
+- Adjusting the window position before entering full-screen mode
+
+**To move the application to a different display:**
+
+#. Press :kbd:`F11` to exit full-screen mode (if the application is in full-screen)
+#. Drag the application window to the touchscreen display
+#. Press :kbd:`F11` again to return to full-screen mode on the correct display
+
+Quit Application (Ctrl+Q)
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Press :kbd:`Ctrl+Q` to safely exit the application.
+This is equivalent to selecting **Quit** from the menu bar.
+
+
+Task Management Panel
+---------------------
+
+The task management panel is located in the upper right section of the interface:
+
+Task Selection Dropdown
+^^^^^^^^^^^^^^^^^^^^^^^
+
+A dropdown menu displaying all available tasks configured in your task configuration YAML file:
+
+- Shows task names (e.g., "trossen_ai_solo_dummy_2")
+- Updates the session parameters when a new task is selected
+- Displays "Selected new task: [task_name]" message when changed
+- Automatically loads associated robot configuration for the selected task
+
+To switch tasks:
+
+#. Click the dropdown menu
+#. Select the desired task from the list
+#. The UI will update with the new task's parameters
+
+Episode Count Selection
+^^^^^^^^^^^^^^^^^^^^^^^
+
+A numeric spinbox showing the target number of episodes for the current session:
+
+- Located next to the task selection dropdown
+- Default value shown (e.g., "30")
+- Can be adjusted using:
+  
+  - **+** button: Increment episode count
+  - **-** button: Decrement episode count
+
+- This determines how many episodes will be recorded in the current data collection session
+
+Camera View Section
+-------------------
+
+The camera view section occupies the left side of the interface and provides real-time visual feedback:
+
+Camera Feed Windows
+^^^^^^^^^^^^^^^^^^^
+
+Displays live video feeds from all configured cameras:
+
+- Typically shows 4 camera views in a 2×2 grid layout:
+  
+  - **Top-left**: High-angle camera (``cam_high``)
+  - **Top-right**: Low-angle camera (``cam_low``)
+  - **Bottom-left**: Right wrist camera (``cam_right_wrist``)
+  - **Bottom-right**: Left wrist camera (``cam_left_wrist``)
+
+- Each window shows:
+  
+  - Live video stream from the corresponding camera
+  - The UI refreshes the displayed frames at the ``display_fps`` frequency specified in the task YAML file
+  - Displays a "No Camera" icon when a camera is disconnected, not configured, or when recording is not active.
+
+Camera Feed Display FPS
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Displayed at the top of the camera view section (e.g., "Camera Feed Display FPS: 0"):
+
+- Shows the current refresh rate of camera displays in the UI
+- Controlled by the ``display_fps`` parameter in task configuration
+- Values:
+  
+  - **0**: Camera displays are disabled (performance mode)
+  - **1-5**: Low refresh rate (recommended for most use cases)
+  - **10-30**: Higher refresh rate (smoother visuals, higher CPU usage)
+
+- This only affects UI display; actual recording always uses the ``fps`` parameter
+- Lower values improve performance on resource-constrained systems
+- Display FPS applies to both recording and dry run modes
+
+Progress Tracking Section
+-------------------------
+
+Located in the lower right section, this area provides real-time feedback on session progress:
+
+Episode Progress Bar
+^^^^^^^^^^^^^^^^^^^^
+
+A visual progress bar showing completion status for the current episode:
+
+- Label: "EPISODE PROGRESS"
+- Fills from left to right as the episode progresses
+- Shows percentage completion of the current episode based on elapsed time vs. ``episode_length_s``
+- Resets to 0% when starting each new episode
+- Updates at the ``display_fps`` frequency defined in the task configuration.
+
+Example:
+- If ``episode_length_s`` is 10 seconds and 5 seconds have elapsed, progress shows 50%
+
+Total Time Display
+^^^^^^^^^^^^^^^^^^
+
+Displays the total duration configured for the current episode:
+
+- Label: "Total Time:"
+- Shows the episode duration in seconds as defined by ``episode_length_s`` in the task configuration
+- This is a static value displaying the target episode length (e.g., "Total Time: 10" for a 10-second episode)
+- Does not track elapsed time; instead shows the total allocated time for each episode
+- Helps users know the expected duration of the recording session
+
+Log Terminal
+------------
+
+Although not always visible in the main UI, the log terminal provides detailed status messages:
+
+- Displays real-time system messages and status updates
+- Shows:
+  
+  - Connection status for arms and cameras
+  - Episode start/end notifications
+  - Error messages and warnings
+  - Data saving confirmations
+  - Task selection changes
+  - Configuration loading status
+
+Button Controls
+===============
+
+The UI provides several buttons for controlling the data collection process and managing hardware:
+
+RESET ARMS
+----------
+
+Resets all connected robot arms for the chosen task to their sleep positions. This button is useful when:
+
+- Arms have drifted from their expected positions
+- Recovering from an error state
+
+Click this button to send all follower and leader arms back to their default positions.
+
+HARDWARE RESET CAMERAS
+-----------------------
+
+Performs a hardware reset of all connected cameras. Use this button when:
+
+- Camera feeds become unresponsive or frozen
+- You experience video quality issues
+- Cameras fail to initialize properly
+
+This will reinitialize all camera connections and restart the video streams.
+
+START RECORDING SESSION
+------------------------
+
+Begins a new data collection session for the selected task. When clicked:
+
+- Initiates the warmup period (as defined in ``warmup_time_s``)
+- Starts recording robot actions and camera feeds
+- Begins the episode timer
+- Changes the button state to indicate active recording
+
+The button is colored green and is the primary control for beginning data collection.
+
+END RECORDING SESSION
+----------------------
+
+Stops the current data collection session. When clicked:
+
+- Terminates the active recording
+- Saves the collected data for the most recently completed episodes.
+- Returns the system to an idle state
+
+The button is colored red and should be used to cleanly end a recording session.
+
+RE-RECORD LAST EPISODE
+-----------------------
+
+Allows you to discard and re-record the most recent episode. This button:
+
+- Becomes available while a episode is actively recording.
+- Deletes the data from the currently active episode.
+- Resets the episode counter to the previous value.
+- Allows you to immediately start a new recording for that episode.
+- The button is disabled when the episode ends and encoding begins, to prevent re-recording after the fact.
+
+The button is colored yellow/orange and is essential for maintaining dataset quality by removing episodes with errors or unwanted behaviors.
+
+DRY RUN
+--------
+
+Executes a practice run without saving data. This mode:
+
+- Displays live camera feeds without recording
+- Allows you to test your setup before actual recording
+- Helps verify that all hardware is functioning correctly
+
+The button is colored gray and is useful for:
+
+- Testing camera angles and positions
+- Verifying robot movements and workspace
+- Practicing the task before formal data collection
+- Troubleshooting system issues without creating dataset entries
 
 Configuring the Robots
 ======================
@@ -212,6 +528,8 @@ An example configuration for the stationary robot is shown below:
     - ``serial_number``: The unique identifier for the camera device.
       For ``intel_realsense`` cameras, use the actual device serial number (e.g., 123456789).
       For ``opencv`` cameras, specify the camera index (e.g., 0, 1, 2).
+      Refer to :ref:`tutorials/lerobot/configuration:Camera Serial Number` for instructions on finding serial numbers for both Intel RealSense and OpenCV cameras.
+      
     - ``width``: The width of the camera image in pixels.
     - ``height``: The height of the camera image in pixels.
     - ``fps``: The desired frames per second for capturing images.
@@ -249,6 +567,7 @@ An example configuration for tasks is shown below:
       play_sounds: true
       disable_active_ui_updates: false
       save_interval: 1
+      display_fps: 1
       operators:
       - name: "YourOperator0"
         email: "youroperatoremail0@example.com"
@@ -273,6 +592,10 @@ An example configuration for tasks is shown below:
   For example, if set to 5, data will be saved every 5 episodes.
   Default is 1 (save after every episode).
   Setting save interval to ``-1``, ``0``, or ``> total number of episodes`` will only save data at the end of the entire data collection session.
+- ``display_fps``: Controls how often camera images are refreshed in the UI (frames per second).
+  The UI uses frame-skipping to render only at the specified frequency, reducing compute load while keeping controls responsive.
+  Applies to both recording and dry-run modes. Default: 1 FPS.
+  Increase for smoother visuals at the cost of more processing; decrease to improve performance.
 - ``operators``: Optional list of operators involved in the task.
   The operator information will be saved in ``info.json`` in the metadata folder.
   You can add multiple operators by specifying their names and email addresses.
@@ -359,6 +682,7 @@ The Trossen AI Data Collection UI offers a variety of features designed to simpl
 
     - The application features a Quit button in the menu that lets you exit safely, making sure all your data is saved and everything shuts down properly.
 
+
 Troubleshooting
 ===============
 
@@ -398,4 +722,24 @@ Disable Camera Views
 
 If the camera views are causing lag, consider disabling them temporarily to see if performance improves.
 This just disables the camera feeds in the GUI but does not affect data collection.
-Click the checkbox labeled ``Disable Camera Views`` in the top-right corner of the GUI.
+Make the ``display_fps`` parameter 0 to disable camera updates in the UI.
+
+Changelog
+=========
+
+1.2.0
+------
+
+- Separated display FPS from control loop FPS with intelligent frame skipping and a configurable ``display_fps`` parameter (default 1 FPS), preventing camera UI updates from degrading control loop stability and responsiveness during recording while reducing UI overhead.
+- Moved RGB-to-BGR color space conversion from the time-critical control loop thread to the UI rendering thread, reducing control loop workload and improving real-time control performance.
+- Environment reset now runs asynchronously, allowing video encoding operations to happen in parallel with other tasks instead of blocking the UI, significantly reducing idle wait time between episodes and improving overall recording throughput.
+- Throttled progress bar updates during batch saves and long operations to prevent excessive UI redraws that could cause control FPS drops.
+- Logs now display as formatted HTML with proper text colors instead of raw ANSI escape codes, improving readability in the log viewer with enhanced phase logging and clearer status messages during warmup, reset, saving, and completion phases.
+- Optimized log message appending by avoiding expensive full-document reads on each new log entry, eliminating UI lag during verbose logging operations, with a configurable log entry limit (default 20 entries) and automatic pruning to prevent unbounded memory growth.
+- Camera layout reorganized with dynamic camera name labels displayed above each feed for easier identification, improved structure, and proper resource cleanup before hardware resets to avoid camera hardware conflicts and lock-ups.
+- Dedicated "RESET ARMS" and "HARDWARE RESET CAMERAS" buttons replacing the previous checkbox-based camera feed control for clearer, more intuitive operation of hardware reset functions.
+- 30-second robot connection timeout to prevent indefinite hangs during robot initialization and startup, providing faster failure detection, with improved error handling and automatic restoration of UI elements (buttons, progress bars, controls) to their correct states after failures.
+- Automatic teleoperation enablement check before each episode to ensure robots requiring explicit teleop mode are properly configured before recording begins.
+- Episode numbering now correctly accounts for unsaved batched episodes, preventing incorrect episode counts when using batch save intervals.
+- Re-record button is now only enabled during active recording sessions to prevent accidental activation outside of valid recording contexts.
+- Added F11 keyboard shortcut for full-screen toggle, allowing users to easily move the application window between displays and maximize screen usage on touchscreen displays.

@@ -2,6 +2,13 @@
 Teleoperation
 =============
 
+.. note::
+
+    Ongoing support for the LeRobot fork is deprecated.
+    We recommend using the :doc:`plugin-based LeRobot integration <../lerobot_plugin>` instead.
+
+    However, this integration is necessary for users who wish to use the :doc:`openpi integration <../openpi>`.
+
 By running the following code, you can start your first **SAFE** teleoperation:
 
 .. tabs::
@@ -32,6 +39,10 @@ By running the following code, you can start your first **SAFE** teleoperation:
                 --robot.type=trossen_ai_solo \
                 --robot.max_relative_target=5 \
                 --control.type=teleoperate
+
+.. tip::
+
+    To stop the teleoperation, press :kbd:`CTRL+C` in the terminal.
 
 By adding ``--robot.max_relative_target=5``, we override the default value for **max_relative_target** defined in
 `Trossen AI Robot Configurations <https://github.com/Interbotix/lerobot/blob/trossen-ai/lerobot/common/robot_devices/robots/configs.py>`_.

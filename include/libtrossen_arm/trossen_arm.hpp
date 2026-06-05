@@ -93,6 +93,14 @@ public:
   }
 
   /**
+   * @brief Clear the error state of the robot
+   *
+   * @note This function calls cleanup() with reboot_controller = false
+   * and configure() with clear_error = true internally
+   */
+  void clear_error();
+
+  /**
    * @brief Set the positions of all joints
    *
    * @param goal_positions Positions in rad for arm joints and m for the gripper joint
@@ -100,11 +108,21 @@ public:
    * 2.0s
    * @param blocking Optional: whether to block until the goal positions are reached, default true
    * @param goal_feedforward_velocities Optional: feedforward velocities in rad/s for arm joints
-   * and m/s for the gripper joint, default zeros
+   * and m/s for the gripper joint
    * @param goal_feedforward_accelerations Optional: feedforward accelerations in rad/s^2 for arm
-   * joints and m/s^2 for the gripper joint, default zeros
+   * joints and m/s^2 for the gripper joint
    *
    * @note The size of the vectors should be equal to the number of joints
+   *
+   * @note To avoid numerical issues, interpolation type used is determined automatically based on
+   * goal_time:
+   *
+   * - if longer than 0.2s, quintic polynomial interpolation is used
+   * with goal derivatives defaulted to zero if not specified
+   *
+   * - else if longer than 0.001s, linear interpolation is used
+   *
+   * - else, no interpolation is used and the goal values are applied immediately
    */
   void set_all_positions(
     const std::vector<double> & goal_positions,
@@ -120,11 +138,20 @@ public:
    * @param goal_time Optional: goal time in s when the goal positions should be reached, default
    * 2.0s
    * @param blocking Optional: whether to block until the goal positions are reached, default true
-   * @param goal_feedforward_velocities Optional: feedforward velocities in rad/s, default zeros
-   * @param goal_feedforward_accelerations Optional: feedforward accelerations in rad/s^2, default
-   * zeros
+   * @param goal_feedforward_velocities Optional: feedforward velocities in rad/s
+   * @param goal_feedforward_accelerations Optional: feedforward accelerations in rad/s^2
    *
    * @note The size of the vectors should be equal to the number of arm joints
+   *
+   * @note To avoid numerical issues, interpolation type used is determined automatically based on
+   * goal_time:
+   *
+   * - if longer than 0.2s, quintic polynomial interpolation is used
+   * with goal derivatives defaulted to zero if not specified
+   *
+   * - else if longer than 0.001s, linear interpolation is used
+   *
+   * - else, no interpolation is used and the goal values are applied immediately
    */
   void set_arm_positions(
     const std::vector<double> & goal_positions,
@@ -140,15 +167,25 @@ public:
    * @param goal_time Optional: goal time in s when the goal position should be reached, default
    * 2.0s
    * @param blocking Optional: whether to block until the goal position is reached, default true
-   * @param goal_feedforward_velocity Optional: feedforward velocity in m/s, default zero
-   * @param goal_feedforward_acceleration Optional: feedforward acceleration in m/s^2, default zero
+   * @param goal_feedforward_velocity Optional: feedforward velocity in m/s
+   * @param goal_feedforward_acceleration Optional: feedforward acceleration in m/s^2
+   *
+   * @note To avoid numerical issues, interpolation type used is determined automatically based on
+   * goal_time:
+   *
+   * - if longer than 0.2s, quintic polynomial interpolation is used
+   * with goal derivatives defaulted to zero if not specified
+   *
+   * - else if longer than 0.001s, linear interpolation is used
+   *
+   * - else, no interpolation is used and the goal values are applied immediately
    */
   void set_gripper_position(
     double goal_position,
     double goal_time = 2.0,
     bool blocking = true,
-    double goal_feedforward_velocity = 0.0,
-    double goal_feedforward_acceleration = 0.0);
+    std::optional<double> goal_feedforward_velocity = std::nullopt,
+    std::optional<double> goal_feedforward_acceleration = std::nullopt);
 
   /**
    * @brief Set the position of a joint
@@ -159,17 +196,27 @@ public:
    * 2.0s
    * @param blocking Optional: whether to block until the goal position is reached, default true
    * @param goal_feedforward_velocity Optional: feedforward velocity in rad/s for arm joints and
-   * m/s for the gripper joint, default zero
+   * m/s for the gripper joint
    * @param goal_feedforward_acceleration Optional: feedforward acceleration in rad/s^2 for arm
-   * joints and m/s^2 for the gripper joint, default zero
+   * joints and m/s^2 for the gripper joint
+   *
+   * @note To avoid numerical issues, interpolation type used is determined automatically based on
+   * goal_time:
+   *
+   * - if longer than 0.2s, quintic polynomial interpolation is used
+   * with goal derivatives defaulted to zero if not specified
+   *
+   * - else if longer than 0.001s, linear interpolation is used
+   *
+   * - else, no interpolation is used and the goal values are applied immediately
    */
   void set_joint_position(
     uint8_t joint_index,
     double goal_position,
     double goal_time = 2.0,
     bool blocking = true,
-    double goal_feedforward_velocity = 0.0,
-    double goal_feedforward_acceleration = 0.0
+    std::optional<double> goal_feedforward_velocity = std::nullopt,
+    std::optional<double> goal_feedforward_acceleration = std::nullopt
   );
 
   /**
@@ -183,12 +230,11 @@ public:
    * 2.0s
    * @param blocking Optional: whether to block until the goal positions are reached, default true
    * @param goal_feedforward_velocities Optional: spatial velocity of the end effector frame with
-   * respect to the base frame measured in the base frame in m/s and rad/s, default zeros
+   * respect to the base frame measured in the base frame in m/s and rad/s
    * @param goal_feedforward_accelerations Optional: spatial acceleration of the end effector frame
-   * with respect to the base frame measured in the base frame in m/s^2 and rad/s^2, default
-   * zeros
+   * with respect to the base frame measured in the base frame in m/s^2 and rad/s^2
    * @param num_trajectory_check_samples Optional: number of evenly spaced sampled time steps to
-   * check trajectory feasibility, default 1000
+   * check trajectory feasibility, default 0
    *
    * @note The first 3 elements of goal_positions are the translation and the last 3 elements are
    * the angle-axis representation of the rotation
@@ -196,6 +242,16 @@ public:
    * 3 elements are the angular velocity
    * @note The first 3 elements of goal_feedforward_accelerations are the linear acceleration and
    * the last 3 elements are the angular acceleration
+   *
+   * @note To avoid numerical issues, interpolation type used is determined automatically based on
+   * goal_time:
+   *
+   * - if longer than 0.2s, quintic polynomial interpolation is used
+   * with goal derivatives defaulted to zero if not specified
+   *
+   * - else if longer than 0.001s, linear interpolation is used
+   *
+   * - else, no interpolation is used and the goal values are applied immediately
    */
   void set_cartesian_positions(
     const std::array<double, 6> & goal_positions,
@@ -204,7 +260,7 @@ public:
     bool blocking = true,
     const std::optional<std::array<double, 6>> & goal_feedforward_velocities = std::nullopt,
     const std::optional<std::array<double, 6>> & goal_feedforward_accelerations = std::nullopt,
-    int num_trajectory_check_samples = 1000
+    int num_trajectory_check_samples = 0
   );
 
   /**
@@ -215,9 +271,19 @@ public:
    * 2.0s
    * @param blocking Optional: whether to block until the goal velocities are reached, default true
    * @param goal_feedforward_accelerations Optional: feedforward accelerations in rad/s^2 for arm
-   * joints and m/s^2 for the gripper joint, default zeros
+   * joints and m/s^2 for the gripper joint
    *
    * @note The size of the vectors should be equal to the number of joints
+   *
+   * @note To avoid numerical issues, interpolation type used is determined automatically based on
+   * goal_time:
+   *
+   * - if longer than 0.2s, cubic polynomial interpolation is used
+   * with goal derivatives defaulted to zero if not specified
+   *
+   * - else if longer than 0.001s, linear interpolation is used
+   *
+   * - else, no interpolation is used and the goal values are applied immediately
    */
   void set_all_velocities(
     const std::vector<double> & goal_velocities,
@@ -232,10 +298,19 @@ public:
    * @param blocking Optional: whether to block until the goal velocities are reached, default true
    * @param goal_time Optional: goal time in s when the goal velocities should be reached, default
    * 2.0s
-   * @param goal_feedforward_accelerations Optional: feedforward accelerations in rad/s^2, default
-   * zeros
+   * @param goal_feedforward_accelerations Optional: feedforward accelerations in rad/s^2
    *
    * @note The size of the vectors should be equal to the number of arm joints
+   *
+   * @note To avoid numerical issues, interpolation type used is determined automatically based on
+   * goal_time:
+   *
+   * - if longer than 0.2s, cubic polynomial interpolation is used
+   * with goal derivatives defaulted to zero if not specified
+   *
+   * - else if longer than 0.001s, linear interpolation is used
+   *
+   * - else, no interpolation is used and the goal values are applied immediately
    */
   void set_arm_velocities(
     const std::vector<double> & goal_velocities,
@@ -250,13 +325,23 @@ public:
    * @param goal_time Optional: goal time in s when the goal velocity should be reached, default
    * 2.0s
    * @param blocking Optional: whether to block until the goal velocity is reached, default true
-   * @param goal_feedforward_acceleration Optional: feedforward acceleration in m/s^2, default zero
+   * @param goal_feedforward_acceleration Optional: feedforward acceleration in m/s^2
+   *
+   * @note To avoid numerical issues, interpolation type used is determined automatically based on
+   * goal_time:
+   *
+   * - if longer than 0.2s, cubic polynomial interpolation is used
+   * with goal derivatives defaulted to zero if not specified
+   *
+   * - else if longer than 0.001s, linear interpolation is used
+   *
+   * - else, no interpolation is used and the goal values are applied immediately
    */
   void set_gripper_velocity(
     double goal_velocity,
     double goal_time = 2.0,
     bool blocking = true,
-    double goal_feedforward_acceleration = 0.0
+    std::optional<double> goal_feedforward_acceleration = std::nullopt
   );
 
   /**
@@ -268,14 +353,24 @@ public:
    * 2.0s
    * @param blocking Optional: whether to block until the goal velocity is reached, default true
    * @param goal_feedforward_acceleration Optional: feedforward acceleration in rad/s^2 for arm
-   * joints and m/s^2 for the gripper joint, default zero
+   * joints and m/s^2 for the gripper joint
+   *
+   * @note To avoid numerical issues, interpolation type used is determined automatically based on
+   * goal_time:
+   *
+   * - if longer than 0.2s, cubic polynomial interpolation is used
+   * with goal derivatives defaulted to zero if not specified
+   *
+   * - else if longer than 0.001s, linear interpolation is used
+   *
+   * - else, no interpolation is used and the goal values are applied immediately
    */
   void set_joint_velocity(
     uint8_t joint_index,
     double goal_velocity,
     double goal_time = 2.0,
     bool blocking = true,
-    double goal_feedforward_acceleration = 0.0
+    std::optional<double> goal_feedforward_acceleration = std::nullopt
   );
 
   /**
@@ -289,13 +384,22 @@ public:
    * 2.0s
    * @param blocking Optional: whether to block until the goal velocities are reached, default true
    * @param goal_feedforward_accelerations Optional: spatial acceleration of the end effector frame
-   * with respect to the base frame measured in the base frame in m/s^2 and rad/s^2, default
-   * zeros
+   * with respect to the base frame measured in the base frame in m/s^2 and rad/s^2
    *
    * @note The first 3 elements of goal_velocities are the linear velocity and the last 3 elements
    * are the angular velocity
    * @note The first 3 elements of goal_feedforward_accelerations are the linear acceleration and
    * the last 3 elements are the angular acceleration
+   *
+   * @note To avoid numerical issues, interpolation type used is determined automatically based on
+   * goal_time:
+   *
+   * - if longer than 0.2s, cubic polynomial interpolation is used
+   * with goal derivatives defaulted to zero if not specified
+   *
+   * - else if longer than 0.001s, linear interpolation is used
+   *
+   * - else, no interpolation is used and the goal values are applied immediately
    */
   void set_cartesian_velocities(
     const std::array<double, 6> & goal_velocities,
@@ -315,6 +419,13 @@ public:
    * true
    *
    * @note The size of the vectors should be equal to the number of joints
+   *
+   * @note To avoid numerical issues, interpolation type used is determined automatically based on
+   * goal_time:
+   *
+   * - if longer than 0.001s, linear interpolation is used
+   *
+   * - else, no interpolation is used and the goal values are applied immediately
    */
   void set_all_external_efforts(
     const std::vector<double> & goal_external_efforts,
@@ -332,6 +443,13 @@ public:
    * true
    *
    * @note The size of the vectors should be equal to the number of arm joints
+   *
+   * @note To avoid numerical issues, interpolation type used is determined automatically based on
+   * goal_time:
+   *
+   * - if longer than 0.001s, linear interpolation is used
+   *
+   * - else, no interpolation is used and the goal values are applied immediately
    */
   void set_arm_external_efforts(
     const std::vector<double> & goal_external_efforts,
@@ -347,6 +465,13 @@ public:
    * reached, default 2.0s
    * @param blocking Optional: whether to block until the goal external effort is reached, default
    * true
+   *
+   * @note To avoid numerical issues, interpolation type used is determined automatically based on
+   * goal_time:
+   *
+   * - if longer than 0.001s, linear interpolation is used
+   *
+   * - else, no interpolation is used and the goal values are applied immediately
    */
   void set_gripper_external_effort(
     double goal_external_effort,
@@ -363,6 +488,13 @@ public:
    * reached, default 2.0s
    * @param blocking Optional: whether to block until the goal external effort is reached, default
    * true
+   *
+   * @note To avoid numerical issues, interpolation type used is determined automatically based on
+   * goal_time:
+   *
+   * - if longer than 0.001s, linear interpolation is used
+   *
+   * - else, no interpolation is used and the goal values are applied immediately
    */
   void set_joint_external_effort(
     uint8_t joint_index,
@@ -385,6 +517,13 @@ public:
    *
    * @note The first 3 elements of goal_external_efforts are the force and the last 3 elements
    * are the torque
+   *
+   * @note To avoid numerical issues, interpolation type used is determined automatically based on
+   * goal_time:
+   *
+   * - if longer than 0.001s, linear interpolation is used
+   *
+   * - else, no interpolation is used and the goal values are applied immediately
    */
   void set_cartesian_external_efforts(
     const std::array<double, 6> & goal_external_efforts,
@@ -401,6 +540,13 @@ public:
    * @param blocking Optional: whether to block until the goal efforts are reached, default true
    *
    * @note The size of the vectors should be equal to the number of joints
+   *
+   * @note To avoid numerical issues, interpolation type used is determined automatically based on
+   * goal_time:
+   *
+   * - if longer than 0.001s, linear interpolation is used
+   *
+   * - else, no interpolation is used and the goal values are applied immediately
    */
   void set_all_efforts(
     const std::vector<double> & goal_efforts,
@@ -416,6 +562,13 @@ public:
    * @param blocking Optional: whether to block until the goal efforts are reached, default true
    *
    * @note The size of the vectors should be equal to the number of arm joints
+   *
+   * @note To avoid numerical issues, interpolation type used is determined automatically based on
+   * goal_time:
+   *
+   * - if longer than 0.001s, linear interpolation is used
+   *
+   * - else, no interpolation is used and the goal values are applied immediately
    */
   void set_arm_efforts(
     const std::vector<double> & goal_efforts,
@@ -429,6 +582,13 @@ public:
    * @param goal_effort Effort in N
    * @param goal_time Optional: goal time in s when the goal effort should be reached, default 2.0s
    * @param blocking Optional: whether to block until the goal effort is reached, default true
+   *
+   * @note To avoid numerical issues, interpolation type used is determined automatically based on
+   * goal_time:
+   *
+   * - if longer than 0.001s, linear interpolation is used
+   *
+   * - else, no interpolation is used and the goal values are applied immediately
    */
   void set_gripper_effort(
     double goal_effort,
@@ -443,6 +603,13 @@ public:
    * @param goal_effort Effort in Nm for arm joints and N for the gripper joint
    * @param goal_time Optional: goal time in s when the goal effort should be reached, default 2.0s
    * @param blocking Optional: whether to block until the goal effort is reached, default true
+   *
+   * @note To avoid numerical issues, interpolation type used is determined automatically based on
+   * goal_time:
+   *
+   * - if longer than 0.001s, linear interpolation is used
+   *
+   * - else, no interpolation is used and the goal values are applied immediately
    */
   void set_joint_effort(
     uint8_t joint_index,
@@ -695,46 +862,35 @@ public:
    *
    * @return Driver version
    */
-  const std::string & get_driver_version() const;
+  std::string get_driver_version() const;
 
   /**
    * @brief Get controller firmware version
    *
    * @return Controller firmware version
    */
-  const std::string & get_controller_version() const;
+  std::string get_controller_version() const;
 
   /**
    * @brief Get the robot output
    *
    * @return Robot output
    */
-  const RobotOutput & get_robot_output();
-
-  /**
-   * @brief Get the positions
-   *
-   * @return Positions in rad for arm joints and m for the gripper joint
-   */
-  [[deprecated(
-    "get_positions will be deprecated in the next version, "
-    "please use get_all_positions instead"
-  )]]
-  const std::vector<double> & get_positions();
+  RobotOutput get_robot_output();
 
   /**
    * @brief Get the positions of all joints
    *
    * @return Positions in rad for arm joints and m for the gripper joint
    */
-  const std::vector<double> & get_all_positions();
+  std::vector<double> get_all_positions();
 
   /**
    * @brief Get the positions of the arm joints
    *
    * @return Positions in rad
    */
-  const std::vector<double> & get_arm_positions();
+  std::vector<double> get_arm_positions();
 
   /**
    * @brief Get the position of the gripper
@@ -759,32 +915,21 @@ public:
    * @note The first 3 elements are the translation and the last 3 elements are the angle-axis
    * representation of the rotation
    */
-  const std::array<double, 6> & get_cartesian_positions();
-
-  /**
-   * @brief Get the velocities
-   *
-   * @return Velocities in rad/s for arm joints and m/s for the gripper joint
-   */
-  [[deprecated(
-    "get_velocities will be deprecated in the next version, "
-    "please use get_all_velocities instead"
-  )]]
-  const std::vector<double> & get_velocities();
+  std::array<double, 6> get_cartesian_positions();
 
   /**
    * @brief Get the velocities of all joints
    *
    * @return Velocities in rad/s for arm joints and m/s for the gripper joint
    */
-  const std::vector<double> & get_all_velocities();
+  std::vector<double> get_all_velocities();
 
   /**
    * @brief Get the velocities of the arm joints
    *
    * @return Velocities in rad/s
    */
-  const std::vector<double> & get_arm_velocities();
+  std::vector<double> get_arm_velocities();
 
   /**
    * @brief Get the velocity of the gripper
@@ -810,21 +955,21 @@ public:
    * @note The first 3 elements are the linear velocity and the last 3 elements are the angular
    * velocity
    */
-  const std::array<double, 6> & get_cartesian_velocities();
+  std::array<double, 6> get_cartesian_velocities();
 
   /**
    * @brief Get the accelerations
    *
    * @return Accelerations in rad/s^2 for arm joints and m/s^2 for the gripper joint
    */
-  const std::vector<double> & get_all_accelerations();
+  std::vector<double> get_all_accelerations();
 
   /**
    * @brief Get the accelerations of all joints
    *
    * @return Accelerations in rad/s^2 for arm joints and m/s^2 for the gripper joint
    */
-  const std::vector<double> & get_arm_accelerations();
+  std::vector<double> get_arm_accelerations();
 
   /**
    * @brief Get the acceleration of the gripper
@@ -850,32 +995,21 @@ public:
    * @note The first 3 elements are the linear acceleration and the last 3 elements are the
    * angular acceleration
    */
-  const std::array<double, 6> & get_cartesian_accelerations();
-
-  /**
-   * @brief Get the efforts
-   *
-   * @return Efforts in Nm for arm joints and N for the gripper joint
-   */
-  [[deprecated(
-    "get_efforts will be deprecated in the next version, "
-    "please use get_all_efforts instead"
-  )]]
-  const std::vector<double> & get_efforts();
+  std::array<double, 6> get_cartesian_accelerations();
 
   /**
    * @brief Get the efforts of all joints
    *
    * @return Efforts in Nm for arm joints and N for the gripper joint
    */
-  const std::vector<double> & get_all_efforts();
+  std::vector<double> get_all_efforts();
 
   /**
    * @brief Get the efforts of the arm joints
    *
    * @return Efforts in Nm
    */
-  const std::vector<double> & get_arm_efforts();
+  std::vector<double> get_arm_efforts();
 
   /**
    * @brief Get the effort of the gripper
@@ -893,29 +1027,18 @@ public:
   double get_joint_effort(uint8_t joint_index);
 
   /**
-   * @brief Get the external efforts
-   *
-   * @return External efforts in Nm for arm joints and N for the gripper joint
-   */
-  [[deprecated(
-    "get_external_efforts will be deprecated in the next version, "
-    "please use get_all_external_efforts instead"
-  )]]
-  const std::vector<double> & get_external_efforts();
-
-  /**
    * @brief Get the external efforts of all joints
    *
    * @return External efforts in Nm for arm joints and N for the gripper joint
    */
-  const std::vector<double> & get_all_external_efforts();
+  std::vector<double> get_all_external_efforts();
 
   /**
    * @brief Get the external efforts of the arm joints
    *
    * @return External efforts in Nm
    */
-  const std::vector<double> & get_arm_external_efforts();
+  std::vector<double> get_arm_external_efforts();
 
   /**
    * @brief Get the external effort of the gripper
@@ -940,32 +1063,21 @@ public:
    *
    * @note The first 3 elements are the force and the last 3 elements are the torque
    */
-  const std::array<double, 6> & get_cartesian_external_efforts();
-
-  /**
-   * @brief Get the compensation efforts
-   *
-   * @return Compensation efforts in Nm for arm joints and N for the gripper joint
-   */
-  [[deprecated(
-    "get_compensation_efforts will be deprecated in the next version, "
-    "please use get_all_compensation_efforts instead"
-  )]]
-  const std::vector<double> & get_compensation_efforts();
+  std::array<double, 6> get_cartesian_external_efforts();
 
   /**
    * @brief Get the compensation efforts of all joints
    *
    * @return Compensation efforts in Nm for arm joints and N for the gripper joint
    */
-  const std::vector<double> & get_all_compensation_efforts();
+  std::vector<double> get_all_compensation_efforts();
 
   /**
    * @brief Get the compensation efforts of the arm joints
    *
    * @return Compensation efforts in Nm
    */
-  const std::vector<double> & get_arm_compensation_efforts();
+  std::vector<double> get_arm_compensation_efforts();
 
   /**
    * @brief Get the compensation effort of the gripper
@@ -987,14 +1099,14 @@ public:
    *
    * @return Rotor temperatures in C
    */
-  const std::vector<double> & get_all_rotor_temperatures();
+  std::vector<double> get_all_rotor_temperatures();
 
   /**
    * @brief Get the rotor temperatures of the arm joints
    *
    * @return Rotor temperatures in C
    */
-  const std::vector<double> & get_arm_rotor_temperatures();
+  std::vector<double> get_arm_rotor_temperatures();
 
   /**
    * @brief Get the rotor temperature of the gripper
@@ -1016,14 +1128,14 @@ public:
    *
    * @return Driver temperatures in C
    */
-  const std::vector<double> & get_all_driver_temperatures();
+  std::vector<double> get_all_driver_temperatures();
 
   /**
    * @brief Get the driver temperatures of the arm joints
    *
    * @return Driver temperatures in C
    */
-  const std::vector<double> & get_arm_driver_temperatures();
+  std::vector<double> get_arm_driver_temperatures();
 
   /**
    * @brief Get the driver temperature of the gripper
@@ -1189,6 +1301,24 @@ public:
   bool get_is_configured();
 
   /**
+   * @brief Set this driver's minimum log level
+   *
+   * Messages below this level are silently dropped before reaching the backend.
+   *
+   * @param level Minimum log level
+   */
+  void set_log_level(LogLevel level);
+
+  /**
+   * @brief Set a custom logger backend
+   *
+   * If not called, the library logs to stderr (C++) or Python's logging module (Python).
+   *
+   * @param callback A callback invoked for each log message with (level, logger_name, message)
+   */
+  static void set_logger_backend(LogCallback callback);
+
+  /**
    * @brief Get the logger name
    * @param model Model of the robot
    * @param serv_ip IP address of the robot
@@ -1202,6 +1332,28 @@ public:
    * @return Default logger name
    */
   static std::string get_default_logger_name();
+
+  /**
+   * @brief Discover connected arm controllers on a subnet
+   *
+   * @param subnet Subnet prefix
+   * @param ip_start First host octet to probe, default 1
+   * @param ip_end Last host octet to probe, default 254
+   * @param timeout Per-host connection timeout in seconds, default 0.01s
+   * @return Vector of DiscoverResult for each arm that responded
+   */
+  static std::vector<DiscoverResult> discover(
+    const std::string & subnet,
+    uint8_t ip_start = 1,
+    uint8_t ip_end = 254,
+    double timeout = 0.01
+  );
+
+  /**
+   * @brief Disable a notice
+   * @param notice The notice to disable
+   */
+  static void disable_notice(Notice notice);
 
 private:
   // Raw counterpart of JointCharacteristic
@@ -1507,6 +1659,21 @@ private:
     } cartesian{};
   };
 
+  /// @brief Structure to store the input parameters of the configure() function
+  struct DriverConfiguration
+  {
+    /// @brief Model of the robot
+    Model model{Model::wxai_v0};
+    /// @brief End effector properties
+    EndEffector end_effector{};
+    /// @brief IP address of the robot
+    std::string serv_ip{};
+    /// @brief Whether to clear the error state of the robot
+    bool clear_error{false};
+    /// @brief Timeout for connection to the arm controller's TCP server in seconds
+    double timeout{0.0};
+  };
+
   /** @brief Robot command indicators */
   struct RobotCommandIndicator
   {
@@ -1539,44 +1706,6 @@ private:
     };
   };
 
-  // ErrorState
-  enum class ErrorState : uint8_t {
-    // No error
-    none,
-    // Controller's Ethernet manager failed to initialize
-    ethernet_init_failed,
-    // Controller's CAN interface failed to initialize
-    can_init_failed,
-    // Controller's CAN interface failed to send a message
-    joint_command_failed,
-    // Controller's CAN interface failed to receive a message
-    joint_feedback_failed,
-    // Joint clear error command failed
-    joint_clear_error_failed,
-    // Joint enable command failed
-    joint_enable_failed,
-    // Joint disable command failed
-    joint_disable_failed,
-    // Joint home calibration command failed
-    joint_set_home_failed,
-    // Joint disabled unexpectedly
-    joint_disabled_unexpectedly,
-    // Joint overheated
-    joint_overheated,
-    // Invalid mode command received
-    invalid_mode,
-    // Invalid robot command indicator received
-    invalid_robot_command,
-    // Invalid configuration address
-    invalid_configuration_address,
-    // Robot input with modes different than configured modes received
-    robot_input_mode_mismatch,
-    // Joint limit exceeded
-    joint_limit_exceeded,
-    // Robot input infinite
-    robot_input_infinite
-  };
-
   // Configuration addresses
   enum class ConfigurationAddress : uint8_t {
     // Controller configurations
@@ -1605,15 +1734,6 @@ private:
   // Model to number of joints mapping
   static const std::map<Model, uint8_t> MODEL_NUM_JOINTS;
 
-  // Error information
-  static const std::map<ErrorState, std::string> ERROR_INFORMATION;
-
-  // Model name
-  static const std::map<Model, std::string> MODEL_NAME;
-
-  // Mode name
-  static const std::map<Mode, std::string> MODE_NAME;
-
   // Configuration name
   static const std::map<ConfigurationAddress, std::string> CONFIGURATION_NAME;
 
@@ -1622,6 +1742,9 @@ private:
 
   // Trajectory start time
   std::vector<std::chrono::time_point<std::chrono::steady_clock>> trajectory_start_times_{};
+
+  // Trajectory current time
+  std::chrono::time_point<std::chrono::steady_clock> trajectory_current_time_{};
 
   // Interpolation space
   InterpolationSpace interpolation_space_{InterpolationSpace::joint};
@@ -1672,20 +1795,28 @@ private:
   // Exception handling
   //
   // - if an exception is thrown in the main thread
-  //   - the daemon thread gets std::terminate
-  //   - the main thread unwind the stack: ~TrossenArmDriver() -> cleanup()
+  //   - if not caught
+  //     - at stack unwinding, the driver's deconstructor is called which
+  //       - breaks the loop in the daemon thread and waits for the daemon thread to return
+  //       - cleans up the resources related to the driver
+  //   - if caught
+  //     - the main thread leaves the try-catch block as is
+  //     - optimally, the driver can be cleaned up and configured again
   // - if an exception is thrown in the daemon thread
   //   - the exception is stored in exception_ptr_
   //   - the daemon thread returns
-  //   - the main thread gets the exception and rethrows it at the next operation
-  //   - the main thread unwind the stack: ~TrossenArmDriver() -> cleanup()
+  //   - at the next function call in the main thread, the exception is rethrown
+  //   - if not caught
+  //     - at stack unwinding, the driver's deconstructor is called which
+  //       - cleans up the resources related to the driver'
+  //   - if caught
+  //     - the main thread leaves the try-catch block as is
+  //     - optimally, the driver can be cleaned up and configured again
   //
   // Notes
   //
   // - the mutex claiming cannot be nested or there will be deadlocks, i.e., |-1-|-12-|-2-|-12-|-2-|
   //   is not allowed
-  // - when an exception is thrown by the main thread, the program is expected to terminate either
-  //   immediately or right after cleaning up the resources not related to the driver
 
   // Daemon thread
   std::thread daemon_thread_{};
@@ -1713,6 +1844,9 @@ private:
 
   // Logger
   std::shared_ptr<Logger> logger_ptr_{nullptr};
+
+  // Driver configuration
+  std::unique_ptr<DriverConfiguration> driver_configuration_ptr_{nullptr};
 
   /**
    * @brief Update the robot output

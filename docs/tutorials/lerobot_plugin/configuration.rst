@@ -100,6 +100,18 @@ The configuration File for the leader arm for the Trossen AI Kits with LeRobot c
                 cameras: dict[str, CameraConfig] = field(default_factory=dict)
 
 
+    .. group-tab:: Mobile AI
+
+        .. code-block:: python
+
+            @RobotConfig.register_subclass("mobileai_robot")
+            @dataclass
+            class MobileAIRobotConfig(BiWidowXAIFollowerRobotConfig):
+                # Mobile AI uses the same configuration as BiWidowXAIFollowerRobotConfig.
+                # The base of the kit does not require any configuration parameters.
+                enable_base_motor_torque: bool = False
+
+
     .. group-tab:: WidowXAI Leader
 
         .. code-block:: python
@@ -142,6 +154,17 @@ The configuration File for the leader arm for the Trossen AI Kits with LeRobot c
                 left_arm_ip_address: str
                 right_arm_ip_address: str
 
+
+    .. group-tab:: Mobile AI Leader
+
+        .. code-block:: python
+
+            @TeleoperatorConfig.register_subclass("mobileai_leader_teleop")
+            @dataclass
+            class MobileAILeaderTeleopConfig(BiWidowXAILeaderRobotConfig):
+                # Mobile AI uses the same configuration as BiWidowXAILeaderRobotConfig.
+                pass
+
 Setup IP Address
 ----------------
 
@@ -171,8 +194,8 @@ The dictionary will look like this for two cameras:
         .. code-block:: bash
 
             --robot.cameras="{
-                wrist: {type: intelrealsense, serial_number_or_name: "0123456789", width: 640, height: 480, fps: 30},
-                top: {type: intelrealsense, serial_number_or_name: "1123456789", width: 640, height: 480, fps: 30}
+                cam_main: {type: intelrealsense, serial_number_or_name: "0123456789", width: 640, height: 480, fps: 30},
+                cam_wrist: {type: intelrealsense, serial_number_or_name: "0123456789", width: 640, height: 480, fps: 30}
             }"
 
     .. group-tab:: OpenCV Interface
@@ -180,8 +203,8 @@ The dictionary will look like this for two cameras:
         .. code-block:: bash
 
             --robot.cameras="{
-                wrist: {type: opencv, index_or_path: 8, width: 640, height: 480, fps: 30},
-                top: {type: opencv, index_or_path: 10, width: 640, height: 480, fps: 30}
+                cam_main: {type: opencv, index_or_path: 8, width: 640, height: 480, fps: 30},
+                cam_wrist: {type: opencv, index_or_path: 10, width: 640, height: 480, fps: 30}
             }"
 
 We will look at setting up the specific camera types in more detail below.
@@ -323,5 +346,49 @@ We will look at setting up the specific camera types in more detail below.
             .. note::
 
                 Some cameras may take a few seconds to warm up, and the first frame might be black or green.
+
+            .. note::
+
+                **Multiple Color Streams on Intel RealSense D405 (OpenCV Behavior)**
+                
+                When using the Intel® RealSense™ D405, you may observe two different "color" images in OpenCV: one bright and natural-looking, and another slightly dull. 
+                This behavior is expected and results from the D405's internal hardware architecture.
+                
+                **Internal Camera Architecture**
+                
+                The D405 contains:
+                
+                - A stereo depth module (D401) with left and right global shutter imagers
+                - A dedicated RGB sensor (OmniVision OV9782)
+                - An onboard Image Signal Processor (ISP) for RGB processing
+                
+                The camera exposes multiple video streams as separate UVC endpoints:
+                
+                - **UYVY (Left Stereo Imager)** - Originates from the stereo depth sensor, optimized for depth matching (not color accuracy), limited color fidelity, appears flatter or duller
+                - **YUY2 (RGB Sensor OV9782 via ISP)** - Comes from the dedicated RGB sensor, processed through the ISP (white balance, demosaicing, color correction, gamma, exposure control), produces a bright, natural-looking image
+                
+                **Visual Comparison:**
+                
+                .. list-table::
+                   :widths: 50 50
+                   
+                   * - .. figure:: images/left_stereo_imager_uyvy.png
+                          :alt: UYVY - Left Stereo Imager (dull appearance)
+                          :align: center
+                          
+                          UYVY stream from left stereo imager (dull appearance)
+                     
+                     - .. figure:: images/rgb_sensor_yuy2.png
+                          :alt: YUY2 - RGB Sensor via ISP (bright, natural)
+                          :align: center
+                          
+                          YUY2 stream from RGB sensor via ISP (bright, natural)
+                
+                **Which Stream Should Be Used?**
+                
+                For robotics, object detection, visual servoing, and color-based processing: **Use the brighter YUY2 stream** (RGB sensor OV9782 via ISP). 
+                The UYVY stream is primarily useful for stereo debugging or low-level inspection of the depth imager.
+                
+                Review the captured images in ``outputs/captured_images`` and select the video index that provides the bright, natural-looking YUY2 RGB stream.
 
         #. Find all the camera indices and put them in the appropriate dictionary items as specified above.

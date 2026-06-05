@@ -2,6 +2,13 @@
 LeRobot Installation Guide
 ==========================
 
+.. note::
+
+    Ongoing support for the LeRobot fork is deprecated.
+    We recommend using the :doc:`plugin-based LeRobot integration <../lerobot_plugin>` instead.
+
+    However, this integration is necessary for users who wish to use the :doc:`openpi integration <../openpi>`.
+
 Install LeRobot
 ===============
 
@@ -81,3 +88,21 @@ On your computer:
         .. code-block:: bash
 
             which ffmpeg
+
+#. For Trossen AI Mobile only, configure the SLATE mobile base:
+
+    The SLATE mobile base uses a USB-Serial converter to communicate with the host computer.
+
+    Remove ``brltty`` to prevent it from claiming the device:
+
+    .. code-block:: bash
+
+        sudo apt-get remove brltty
+
+    Add your user to the ``dialout`` group:
+
+    .. code-block:: bash
+
+        sudo usermod -a -G dialout $USER
+
+    Log out and log back in, or reboot your computer to apply the changes.
